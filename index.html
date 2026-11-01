@@ -1,49 +1,23 @@
 <!DOCTYPE html>
-<html lang="th"><head>
+<html lang="th">
+<head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>รายงานประจำวันช่าง</title>
-<script src="p0.js"></script>
-<script src="p1.js"></script>
-<script src="p2.js"></script>
-<script src="p3.js"></script>
-<script src="p4.js"></script>
-<script src="p5.js"></script>
-<script src="p6.js"></script>
-<script src="p7.js"></script>
-<script src="p8.js"></script>
-<script src="p9.js"></script>
-<script src="p10.js"></script>
-<script src="p11.js"></script>
-<script src="p12.js"></script>
-<script src="p13.js"></script>
-<script src="p14.js"></script>
-<script src="p15.js"></script>
-<script src="p16.js"></script>
-<script src="p17.js"></script>
-<script src="p18.js"></script>
-<script src="p19.js"></script>
-<script src="p20.js"></script>
-<script src="p21.js"></script>
-<script src="p22.js"></script>
-<script src="p23.js"></script>
-<script src="p24.js"></script>
-<script src="p25.js"></script>
-<script src="p26.js"></script>
-<script src="p27.js"></script>
-<script src="p28.js"></script>
-<script src="p29.js"></script>
-<script src="p30.js"></script>
-<script src="p31.js"></script>
-</head><body>
-<script>
-try {
-  const b64 = (window.__PARTS||[]).join('');
-  const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-  const html = new TextDecoder('utf-8').decode(bin);
-  document.open(); document.write(html); document.close();
-} catch (e) {
-  document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px">โหลดไม่สำเร็จ: ' + e.message + '</p>';
-}
-</script>
-</body></html>
+<style>
+body{font-family:system-ui,sans-serif;background:#f4f6f9;margin:0;padding:24px;color:#222}
+.card{background:#fff;border-radius:16px;padding:24px;max-width:440px;margin:40px auto;box-shadow:0 8px 28px rgba(0,0,0,.08)}
+h1{font-size:18px;margin:0 0 8px}
+p{font-size:14px;line-height:1.65;color:#555;margin:8px 0}
+.note{font-size:12px;color:#888;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>หน้า GitHub Pages กำลังซ่อม</h1>
+<p>ไฟล์ deploy ชุดก่อนหน้าเสียชั่วคราว จึงเข้าผ่าน Pages ไม่ได้</p>
+<p><b>วิธีใช้ตอนนี้:</b> ให้โฮสต์แอพผ่าน Google Apps Script และตั้ง LIFF Endpoint เป็น URL ของ GAS (ลงท้าย /exec)</p>
+<p class="note">ไม่ต้องอัพเดต Code.gs + แฟ้ม Index.html ในโปรเจกต์ Apps Script แล้ว Deploy ใหม่</p>
+</div>
+</body>
+</html>
