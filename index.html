@@ -1,23 +1,1029 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>รายงานประจำวันช่าง</title>
-<style>
-body{font-family:system-ui,sans-serif;background:#f4f6f9;margin:0;padding:24px;color:#222}
-.card{background:#fff;border-radius:16px;padding:24px;max-width:440px;margin:40px auto;box-shadow:0 8px 28px rgba(0,0,0,.08)}
-h1{font-size:18px;margin:0 0 8px}
-p{font-size:14px;line-height:1.65;color:#555;margin:8px 0}
-.note{font-size:12px;color:#888;margin-top:16px}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>รายงานประจำวันช่าง</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['IBM Plex Sans Thai', 'system-ui', 'sans-serif'] },
+          colors: {
+            ink: { 50:'#f6f7f9', 100:'#eceef2', 200:'#d5dae3', 300:'#b0b9c9', 400:'#8593a9', 500:'#667690', 600:'#515f76', 700:'#434d60', 800:'#3a4251', 900:'#343946', 950:'#22262f' },
+            brand: { 50:'#eef8ff', 100:'#d9efff', 200:'#bce4ff', 300:'#8ed4ff', 400:'#59baff', 500:'#3399ff', 600:'#1a78f5', 700:'#1361e1', 800:'#164eb6', 900:'#18448f' }
+          },
+          boxShadow: {
+            soft: '0 1px 2px rgba(34,38,47,.04), 0 4px 16px rgba(34,38,47,.06)',
+            lift: '0 8px 28px rgba(34,38,47,.10)'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+    .glass { background: rgba(255,255,255,.82); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .chip { transition: background .15s, color .15s, border-color .15s; }
+    .nav-item { position: relative; }
+    .nav-item.on { color: #1a78f5; font-weight: 600; }
+    .nav-item.on::after {
+      content: ''; position: absolute; left: 20%; right: 20%; bottom: 0; height: 2.5px;
+      background: #1a78f5; border-radius: 999px;
+    }
+    .fade-in { animation: up .28s ease; }
+    @keyframes up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .skel {
+      background: linear-gradient(90deg, #eceef2 25%, #f6f7f9 50%, #eceef2 75%);
+      background-size: 200% 100%; animation: shimmer 1.3s infinite; border-radius: .9rem;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .status-dot { width: .55rem; height: .55rem; border-radius: 999px; display: inline-block; }
+    textarea, input, select { font-size: 16px; } /* prevent iOS zoom */
+    @media print {
+      html, body { background: #fff !important; height: auto !important; }
+      #loading, #login, #unauthorized, header, nav, .no-print, #toast, #modal, #edit-modal, #print-preview { display: none !important; }
+      #app { display: block !important; padding: 0 !important; min-height: 0 !important; }
+      main, #v-checklist, #v-submit, #v-reports, #v-myreport { display: none !important; }
+      #print-area { display: block !important; padding: 12px !important; }
+    }
+    #print-area { display: none; }
+    #print-preview { display: none; }
+    #print-preview.show { display: flex; }
+    .bg-mesh {
+      background:
+        radial-gradient(900px 420px at 10% -10%, rgba(26,120,245,.14), transparent 55%),
+        radial-gradient(700px 380px at 100% 0%, rgba(16,185,129,.10), transparent 50%),
+        #f4f6f9;
+    }
+  </style>
 </head>
-<body>
-<div class="card">
-<h1>หน้า GitHub Pages กำลังซ่อม</h1>
-<p>ไฟล์ deploy ชุดก่อนหน้าเสียชั่วคราว จึงเข้าผ่าน Pages ไม่ได้</p>
-<p><b>วิธีใช้ตอนนี้:</b> ให้โฮสต์แอพผ่าน Google Apps Script และตั้ง LIFF Endpoint เป็น URL ของ GAS (ลงท้าย /exec)</p>
-<p class="note">ไม่ต้องอัพเดต Code.gs + แฟ้ม Index.html ในโปรเจกต์ Apps Script แล้ว Deploy ใหม่</p>
-</div>
+<body class="bg-mesh text-ink-900 min-h-screen">
+
+  <!-- Loading -->
+  <div id="loading" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
+    <div class="w-11 h-11 rounded-full border-[3px] border-ink-100 border-t-brand-600 animate-spin mb-4"></div>
+    <p class="text-ink-400 text-sm tracking-wide">กำลังโหลด</p>
+  </div>
+
+  <!-- Login -->
+  <div id="login" class="hidden fixed inset-0 z-40 flex items-center justify-center p-6"
+       style="background: radial-gradient(1200px 600px at 20% -10%, #bce4ff 0%, transparent 55%), radial-gradient(900px 500px at 100% 20%, #d9efff 0%, transparent 50%), #f6f7f9;">
+    <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-lift border border-ink-100">
+      <div class="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center mb-5">
+        <svg class="w-6 h-6 text-brand-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <h1 class="text-xl font-semibold tracking-tight mb-1">รายงานประจำวันช่าง</h1>
+      <p class="text-ink-500 text-sm mb-8 leading-relaxed">เข้าสู่ระบบด้วยบัญชี LINE ที่ได้รับอนุญาต</p>
+      <button onclick="loginWithLine()" class="w-full bg-[#06C755] hover:bg-[#05b34c] text-white font-medium py-3.5 rounded-2xl flex items-center justify-center gap-2.5 transition active:scale-[0.98]">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 5.94 2 10.5c0 3.98 3.5 7.3 8.25 7.9.32.07.75.22.86.5.1.26.07.67.03.94l-.15 1c-.05.3-.24 1.18 1.04.65 1.28-.53 6.9-4.07 9.42-6.96C22.94 12.5 24 11.56 24 10.5 24 5.94 19.52 2 12 2z"/></svg>
+        เข้าสู่ระบบด้วย LINE
+      </button>
+    </div>
+  </div>
+
+  <!-- Unauthorized -->
+  <div id="unauthorized" class="hidden fixed inset-0 bg-ink-50 z-40 flex items-center justify-center p-6">
+    <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-soft border border-ink-100 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center mx-auto mb-5">
+        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+      </div>
+      <h1 class="text-lg font-semibold mb-2">ไม่มีสิทธิ์เข้าใช้งาน</h1>
+      <p id="unauth-msg" class="text-ink-500 text-sm mb-2">บัญชี LINE นี้ไม่ได้อยู่ในรายชื่อที่ได้รับอนุญาต</p>
+      <p class="text-xs text-ink-400 mb-4">ติดต่อหัวหน้าเพื่อเพิ่มชื่อในชีท <b>ผู้ใช้งาน</b></p>
+      <p id="unauth-name" class="text-sm font-medium text-ink-700 mb-6"></p>
+      <button onclick="liffLogout()" class="w-full bg-ink-100 hover:bg-ink-200 text-ink-700 font-medium py-3 rounded-2xl">ออกจากระบบ</button>
+    </div>
+  </div>
+
+  <!-- App -->
+  <div id="app" class="hidden min-h-screen pb-24 safe-bottom">
+    <header class="glass sticky top-0 z-30 border-b border-ink-100/80 no-print">
+      <div class="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <img id="avatar" class="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm" src="" alt="" />
+          <div class="min-w-0">
+            <p id="uname" class="font-semibold text-sm truncate leading-tight">-</p>
+            <p id="role-badge" class="text-[11px] text-ink-400 mt-0.5"></p>
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <p id="today-label" class="text-xs font-medium text-ink-600"></p>
+          <p class="text-[10px] text-ink-400 mt-0.5">รายงานประจำวัน</p>
+        </div>
+      </div>
+      <nav class="flex px-1">
+        <button onclick="goTab('checklist')" id="t-checklist" class="nav-item on flex-1 py-3 text-[13px] text-ink-500">ตรวจเครื่อง</button>
+        <button onclick="goTab('submit')" id="t-submit" class="nav-item flex-1 py-3 text-[13px] text-ink-500">ส่งรายงาน</button>
+        <button onclick="goTab('reports')" id="t-reports" class="nav-item flex-1 py-3 text-[13px] text-ink-500">ทุกรายงาน</button>
+        <button onclick="goTab('myreport')" id="t-myreport" class="nav-item flex-1 py-3 text-[13px] text-ink-500">ของฉัน</button>
+      </nav>
+    </header>
+
+    <main class="px-4 py-4 space-y-4">
+
+      <!-- ตรวจเครื่อง -->
+      <section id="v-checklist" class="fade-in space-y-4">
+        <div class="flex items-end justify-between gap-3">
+          <div>
+            <h2 class="font-semibold text-[17px] tracking-tight">ตรวจเช็คเครื่องจักร</h2>
+            <p class="text-xs text-ink-400 mt-0.5" id="cl-scope-label">ข้อมูลวันนี้ · กะปัจจุบัน</p>
+          </div>
+          <button onclick="loadChecklist()" class="text-brand-700 text-xs font-medium px-3 py-1.5 rounded-full bg-brand-50 border border-brand-100">รีเฟรช</button>
+        </div>
+        <div id="cl-shift-bar" class="flex gap-2 overflow-x-auto pb-0.5">
+          <button type="button" onclick="setViewShift('Morning')" data-s="Morning" class="cl-s chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">เช้า</button>
+          <button type="button" onclick="setViewShift('Afternoon')" data-s="Afternoon" class="cl-s chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">บ่าย</button>
+          <button type="button" onclick="setViewShift('Night')" data-s="Night" class="cl-s chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">ดึก</button>
+          <button type="button" id="cl-s-all" onclick="setViewShift('')" data-s="" class="cl-s chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600 hidden">ทุกกะ</button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2.5">
+          <div class="bg-white border border-ink-100 rounded-2xl p-3.5 shadow-soft text-center">
+            <p class="text-2xl font-semibold text-emerald-600 tabular-nums" id="st-ok">-</p>
+            <p class="text-[11px] text-ink-400 mt-0.5">ตรวจแล้ว</p>
+          </div>
+          <div class="bg-white border border-ink-100 rounded-2xl p-3.5 shadow-soft text-center">
+            <p class="text-2xl font-semibold text-amber-600 tabular-nums" id="st-miss">-</p>
+            <p class="text-[11px] text-ink-400 mt-0.5">ไม่ได้ตรวจ</p>
+          </div>
+          <div class="bg-white border border-ink-100 rounded-2xl p-3.5 shadow-soft text-center">
+            <p class="text-2xl font-semibold text-red-600 tabular-nums" id="st-bad">-</p>
+            <p class="text-[11px] text-ink-400 mt-0.5">ผิดปกติ</p>
+          </div>
+        </div>
+
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          <button onclick="filterCL('all')" data-f="all" class="cl-f chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-ink-900 text-white">ทั้งหมด</button>
+          <button onclick="filterCL('checked')" data-f="checked" class="cl-f chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">ตรวจแล้ว</button>
+          <button onclick="filterCL('missed')" data-f="missed" class="cl-f chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">ไม่ได้ตรวจ</button>
+          <button onclick="filterCL('bad')" data-f="bad" class="cl-f chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">ผิดปกติ</button>
+        </div>
+
+        <div id="checklist-list" class="space-y-2"><div class="skel h-14"></div></div>
+      </section>
+
+      <!-- ส่งรายงาน -->
+      <section id="v-submit" class="hidden fade-in">
+        <div class="bg-white border border-ink-100 rounded-3xl p-5 shadow-soft">
+          <h2 class="font-semibold text-[17px] tracking-tight">ส่งรายงานประจำวัน</h2>
+          <p class="text-sm text-ink-400 mt-1 mb-5" id="submit-date"></p>
+
+          <form id="form" class="space-y-5" onsubmit="submitReport(event)">
+            <div>
+              <label class="block text-[13px] font-medium text-ink-600 mb-1.5">ชื่อช่าง</label>
+              <input type="text" id="tech_name" readonly class="w-full border border-ink-100 bg-ink-50 rounded-2xl px-4 py-3 text-sm text-ink-700" />
+            </div>
+
+            <div>
+              <label class="block text-[13px] font-medium text-ink-600 mb-2">กะงาน</label>
+              <div class="grid grid-cols-3 gap-2">
+                <label class="relative cursor-pointer">
+                  <input type="radio" name="shift" value="Morning" class="peer sr-only" checked />
+                  <span class="block text-center text-sm py-2.5 rounded-2xl border border-ink-200 peer-checked:border-brand-600 peer-checked:bg-brand-50 peer-checked:text-brand-800 peer-checked:font-medium">เช้า</span>
+                </label>
+                <label class="relative cursor-pointer">
+                  <input type="radio" name="shift" value="Afternoon" class="peer sr-only" />
+                  <span class="block text-center text-sm py-2.5 rounded-2xl border border-ink-200 peer-checked:border-brand-600 peer-checked:bg-brand-50 peer-checked:text-brand-800 peer-checked:font-medium">บ่าย</span>
+                </label>
+                <label class="relative cursor-pointer">
+                  <input type="radio" name="shift" value="Night" class="peer sr-only" />
+                  <span class="block text-center text-sm py-2.5 rounded-2xl border border-ink-200 peer-checked:border-brand-600 peer-checked:bg-brand-50 peer-checked:text-brand-800 peer-checked:font-medium">ดึก</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[13px] font-medium text-ink-600 mb-1.5">วันนี้ทำอะไรไปบ้าง <span class="text-red-500">*</span></label>
+              <textarea id="work_summary" rows="4" required placeholder="สรุปงานที่ทำในกะนี้..." class="w-full border border-ink-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none leading-relaxed"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-[13px] font-medium text-ink-600 mb-1.5">หมายเหตุ</label>
+              <textarea id="notes" rows="2" placeholder="ถ้ามี (ไม่บังคับ)" class="w-full border border-ink-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"></textarea>
+            </div>
+
+            <div class="rounded-2xl bg-ink-50 border border-ink-100 p-3.5 text-[12px] text-ink-500 space-y-1.5">
+              <p class="font-medium text-ink-600">สรุปอัตโนมัติจากระบบ</p>
+              <p>ตรวจเครื่องแล้ว <span id="sum-checked" class="font-semibold text-ink-800">-</span> · ไม่ได้ตรวจ <span id="sum-missed" class="font-semibold text-amber-700">-</span></p>
+              <p>งานแจ้งซ่อมวันนี้ <span id="sum-jobs" class="font-semibold text-ink-800">-</span> รายการ</p>
+            </div>
+
+            <button type="submit" id="btn-send" class="w-full bg-ink-900 hover:bg-ink-800 text-white font-medium py-3.5 rounded-2xl transition active:scale-[0.99]">
+              ส่งรายงานประจำวัน
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ทุกรายงาน -->
+      <section id="v-reports" class="hidden fade-in space-y-4">
+        <div class="flex items-end justify-between gap-3">
+          <div>
+            <h2 class="font-semibold text-[17px] tracking-tight">รายงานทั้งหมด</h2>
+            <p class="text-xs text-ink-400 mt-0.5">ทุกคนดูได้ · หัวหน้ายืนยันและพิมพ์ได้</p>
+          </div>
+          <button onclick="loadAllReports()" class="text-brand-700 text-xs font-medium px-3 py-1.5 rounded-full bg-brand-50 border border-brand-100">รีเฟรช</button>
+        </div>
+        <div class="flex gap-2">
+          <input type="date" id="filter-date" class="border border-ink-200 rounded-2xl px-3 py-2.5 text-sm flex-1 bg-white" onchange="loadAllReports()" />
+          <select id="filter-shift" onchange="loadAllReports()" class="border border-ink-200 rounded-2xl px-3 py-2.5 text-sm bg-white">
+            <option value="">ทุกกะ</option>
+            <option value="Morning">เช้า</option>
+            <option value="Afternoon">บ่าย</option>
+            <option value="Night">ดึก</option>
+          </select>
+        </div>
+        <div id="all-reports" class="space-y-2.5"><div class="skel h-24"></div></div>
+      </section>
+
+      <!-- รายงานของฉัน -->
+      <section id="v-myreport" class="hidden fade-in space-y-4">
+        <div>
+          <h2 class="font-semibold text-[17px] tracking-tight">รายงานของฉัน</h2>
+          <p class="text-xs text-ink-400 mt-0.5">แก้ไขได้ถ้ายังไม่ถูกยืนยัน</p>
+        </div>
+        <div id="my-reports" class="space-y-2.5"><div class="skel h-20"></div></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="modal" class="hidden fixed inset-0 bg-ink-950/40 z-40 flex items-end sm:items-center justify-center no-print" onclick="closeModal()">
+    <div class="bg-white rounded-t-[1.75rem] sm:rounded-3xl w-full max-w-lg max-h-[88vh] overflow-y-auto shadow-lift" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white/95 backdrop-blur px-5 pt-4 pb-3 border-b border-ink-100 flex justify-between items-center">
+        <h3 class="font-semibold text-[16px]">รายละเอียดรายงาน</h3>
+        <button onclick="closeModal()" class="w-9 h-9 rounded-full bg-ink-50 text-ink-500 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="px-5 py-4" id="modal-body"></div>
+      <div id="approve-box" class="hidden px-5 pb-2">
+        <label class="block text-[13px] font-medium text-ink-600 mb-1.5">ความคิดเห็นหัวหน้า <span class="text-ink-400 font-normal">(ไม่บังคับ)</span></label>
+        <textarea id="approve-comment" rows="2" placeholder="เช่น รับทราบ / ติดตามเพิ่มเติม..." class="w-full border border-ink-200 rounded-2xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"></textarea>
+      </div>
+      <div class="px-5 pb-5 pt-2 flex flex-wrap gap-2 border-t border-ink-50">
+        <button id="btn-approve" onclick="approveCurrent()" class="hidden flex-1 min-w-[9rem] py-3 rounded-2xl text-sm font-medium bg-brand-600 text-white">ยืนยันรับรายงาน</button>
+        <button id="btn-edit" onclick="openEdit()" class="hidden flex-1 min-w-[9rem] py-3 rounded-2xl text-sm font-medium bg-ink-100 text-ink-800">แก้ไขรายงาน</button>
+        <button id="btn-print" onclick="printCurrent()" class="hidden flex-1 min-w-[9rem] py-3 rounded-2xl text-sm font-medium border border-ink-200 text-ink-700">พิมพ์รายงาน</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="edit-modal" class="hidden fixed inset-0 bg-ink-950/40 z-50 flex items-end sm:items-center justify-center no-print" onclick="closeEdit()">
+    <div class="bg-white rounded-t-[1.75rem] sm:rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-lift" onclick="event.stopPropagation()">
+      <div class="sticky top-0 bg-white px-5 pt-4 pb-3 border-b border-ink-100 flex justify-between items-center">
+        <h3 class="font-semibold text-[16px]">แก้ไขรายงาน</h3>
+        <button onclick="closeEdit()" class="w-9 h-9 rounded-full bg-ink-50 text-ink-500 flex items-center justify-center">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form class="px-5 py-4 space-y-4" onsubmit="saveEdit(event)">
+        <div>
+          <label class="block text-[13px] font-medium text-ink-600 mb-1.5">กะงาน</label>
+          <select id="edit-shift" class="w-full border border-ink-200 rounded-2xl px-3.5 py-2.5 text-sm bg-white">
+            <option value="Morning">เช้า</option>
+            <option value="Afternoon">บ่าย</option>
+            <option value="Night">ดึก</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium text-ink-600 mb-1.5">วันนี้ทำอะไรไปบ้าง</label>
+          <textarea id="edit-summary" rows="4" required class="w-full border border-ink-200 rounded-2xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-[13px] font-medium text-ink-600 mb-1.5">หมายเหตุ</label>
+          <textarea id="edit-notes" rows="2" class="w-full border border-ink-200 rounded-2xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"></textarea>
+        </div>
+        <button type="submit" class="w-full bg-ink-900 text-white font-medium py-3.5 rounded-2xl">บันทึกการแก้ไข</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="print-area"></div>
+
+  <!-- Mobile print preview -->
+  <div id="print-preview" class="fixed inset-0 z-[70] bg-white flex-col no-print">
+    <div class="sticky top-0 z-10 bg-white border-b border-ink-100 px-4 py-3 flex items-center justify-between gap-2">
+      <button type="button" onclick="closePrintPreview()" class="text-sm font-medium text-ink-600 px-2 py-1.5">ปิด</button>
+      <p class="text-sm font-semibold">ตัวอย่างรายงาน</p>
+      <button type="button" onclick="printFromPreview()" class="text-sm font-medium text-brand-700 bg-brand-50 border border-brand-100 px-3 py-1.5 rounded-full">พิมพ์</button>
+    </div>
+    <div id="print-preview-body" class="flex-1 overflow-y-auto p-4 text-ink-900"></div>
+    <div class="sticky bottom-0 bg-white border-t border-ink-100 p-4 space-y-2 safe-bottom">
+      <p class="text-[11px] text-ink-400 text-center">บนมือถือหากพิมพ์ไม่ได้ ให้กดแชร์แล้วเลือกพิมพ์ หรือบันทึกเป็น PDF</p>
+      <button type="button" onclick="sharePrintReport()" class="w-full py-3 rounded-2xl bg-ink-900 text-white text-sm font-medium">แชร์ / บันทึก PDF</button>
+    </div>
+  </div>
+
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink-900 text-white text-sm px-5 py-3 rounded-full shadow-lift opacity-0 pointer-events-none transition-opacity z-[60] max-w-[90%] text-center no-print"></div>
+
+  <script>
+    const LIFF_ID = '2011217041-56BP6tWK';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzjLr1ZS7_2okGgwHZftSVQ5ddrLDRf8vWz9E3_svx7-wredlTQvOaifgDCP5pQDRIFOw/exec';
+    const SHEET_JOBS_ID = '1Af9TWOlRtHomFe6Y2wwCaBmkZe4XtasxuxhGm8NFmGs';
+    const SHEET_JOBS_GID = '880111695';
+    const SHEET_MACHINES_ID = '1el9AyKCQULeQVqtTMkxTFD07lbW9VfuWeAaNOuONV8s';
+    const SHEET_MACHINES_GID = '136253693';
+
+    const ALL_EQUIPMENT = [
+      {id:'EQ001', name:'GENERATOR'},{id:'EQ002', name:'FIRE PUMP'},{id:'EQ003', name:'JOCKY PUMP'},
+      {id:'EQ004', name:'Swimming Pool System'},{id:'EQ005', name:'SP-D-01-A , SP-D-01-B'},{id:'EQ006', name:'AB-2'},
+      {id:'EQ007', name:'SP-3 , SP-4'},{id:'EQ008', name:'AB-1'},{id:'EQ009', name:'SP-D-02-C , SP-D-02-D'},
+      {id:'EQ010', name:'AB-3'},{id:'EQ011', name:'SP-SW-02-C , SP-SW-02-D'},{id:'EQ012', name:'SP-9 , SP-10'},
+      {id:'EQ013', name:'SP-SW-01-A , SP-SW-01-B'},{id:'EQ014', name:'SP-RL-01-A , SP-RL-01-B'},
+      {id:'EQ015', name:'SP-RL-02-C , SP-RL-02-D'},{id:'EQ016', name:'Refrigerator NO.1'},{id:'EQ017', name:'Refrigerator NO.2'},
+      {id:'EQ018', name:'Refrigerator NO.3'},{id:'EQ019', name:'Refrigerator NO.4'},{id:'EQ020', name:'Refrigerator NO.5'},
+      {id:'EQ021', name:'Refrigerator NO.6'},{id:'EQ022', name:'Refrigerator NO.7'},{id:'EQ023', name:'Refrigerator NO.8'},
+      {id:'EQ024', name:'Refrigerator NO.9'},{id:'EQ025', name:'Refrigerator NO.10'},{id:'EQ026', name:'Refrigerator NO.11'},
+      {id:'EQ027', name:'Refrigerator NO.12'},{id:'EQ028', name:'Refrigerator NO.13'},{id:'EQ029', name:'Refrigerator NO.14'},
+      {id:'EQ030', name:'Refrigerator NO.15'},{id:'EQ031', name:'BOOSTER PUMP NO.1'},{id:'EQ032', name:'BOOSTER PUMP NO.2'},
+      {id:'EQ033', name:'BOOSTER PUMP NO.3'},{id:'EQ034', name:'BOOSTER PUMP NO.4'}
+    ];
+
+    const SHIFT_TH = { Morning: 'เช้า', Afternoon: 'บ่าย', Night: 'ดึก' };
+
+    let profile = null;
+    let techName = '';
+    let isSupervisor = false;
+    let checklistData = [];
+    let myJobs = [];
+    let clFilter = 'all';
+    let viewShift = ''; // '' = all (supervisor only)
+    let allReports = [];
+    let myReportList = [];
+    let currentReport = null;
+    let currentSource = 'all';
+    let lastPrintHtml = '';
+
+    document.addEventListener('DOMContentLoaded', init);
+
+    async function init() {
+      const now = new Date();
+      document.getElementById('today-label').textContent = formatThai(now);
+      document.getElementById('submit-date').textContent = formatThai(now);
+      document.getElementById('filter-date').value = now.toISOString().slice(0,10);
+
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) { show('login'); return; }
+        profile = await liff.getProfile();
+        await authorizeUser();
+      } catch (e) {
+        console.warn(e);
+        show('login');
+      }
+    }
+
+    async function authorizeUser() {
+      try {
+        const data = await callGAS('checkAuth', {});
+        if (!data.allowed) {
+          document.getElementById('unauth-name').textContent = profile.displayName + ' · ' + (profile.userId || '');
+          show('unauthorized');
+          return;
+        }
+        techName = data.techName || profile.displayName;
+        isSupervisor = data.role === 'supervisor';
+        enterApp();
+      } catch (e) {
+        document.getElementById('unauth-msg').textContent = 'ตรวจสอบสิทธิ์ไม่สำเร็จ: ' + (e.message || '');
+        document.getElementById('unauth-name').textContent = (profile && profile.displayName) || '';
+        show('unauthorized');
+      }
+    }
+
+    function enterApp() {
+      show('app');
+      const shown = techName || profile.displayName;
+      document.getElementById('uname').textContent = shown;
+      document.getElementById('avatar').src = profile.pictureUrl || ('https://ui-avatars.com/api/?name='+encodeURIComponent(shown)+'&background=1a78f5&color=fff');
+      document.getElementById('role-badge').textContent = isSupervisor ? 'หัวหน้า · Supervisor' : 'ช่าง · Technician';
+      document.getElementById('tech_name').value = shown;
+      viewShift = detectShift();
+      if (isSupervisor) {
+        const allBtn = document.getElementById('cl-s-all');
+        if (allBtn) allBtn.classList.remove('hidden');
+      }
+      updateShiftChips();
+      loadChecklist();
+      loadJobs();
+    }
+
+    function show(name) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('login').classList.toggle('hidden', name !== 'login');
+      document.getElementById('unauthorized').classList.toggle('hidden', name !== 'unauthorized');
+      document.getElementById('app').classList.toggle('hidden', name !== 'app');
+    }
+
+    function goTab(name) {
+      ['checklist','submit','reports','myreport'].forEach(t => {
+        const view = document.getElementById('v-'+t);
+        if (view) view.classList.toggle('hidden', t !== name);
+        const btn = document.getElementById('t-'+t);
+        if (btn) btn.classList.toggle('on', t === name);
+      });
+      if (name === 'submit') updateSubmitSummary();
+      if (name === 'reports') loadAllReports();
+      if (name === 'myreport') loadMyReports();
+    }
+
+    async function loginWithLine() {
+      if (!liff.isLoggedIn()) liff.login();
+      else { profile = await liff.getProfile(); await authorizeUser(); }
+    }
+    function liffLogout() {
+      if (liff.isLoggedIn()) liff.logout();
+      location.reload();
+    }
+
+    // ===== Checklist =====
+    function detectShift() {
+      // Asia/Bangkok hour
+      const h = Number(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok', hour: 'numeric', hour12: false }));
+      if (h >= 6 && h < 14) return 'Morning';
+      if (h >= 14 && h < 22) return 'Afternoon';
+      return 'Night';
+    }
+
+    function setViewShift(s) {
+      // ช่างเลือกได้เฉพาะกะของตัวเอง (ค่าเริ่มต้น); หัวหน้าเลือกได้ทุกกะ
+      if (!isSupervisor && s === '') return;
+      viewShift = s;
+      updateShiftChips();
+      loadChecklist();
+    }
+
+    function updateShiftChips() {
+      document.querySelectorAll('.cl-s').forEach(b => {
+        const val = b.getAttribute('data-s');
+        const on = val === viewShift;
+        b.className = 'cl-s chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium ' +
+          (on ? 'bg-ink-900 text-white border border-ink-900' : 'bg-white border border-ink-200 text-ink-600');
+      });
+      const scope = document.getElementById('cl-scope-label');
+      if (!scope) return;
+      if (isSupervisor) {
+        scope.textContent = viewShift ? ('หัวหน้า · กะ' + (SHIFT_TH[viewShift] || viewShift) + ' วันนี้') : 'หัวหน้า · ทุกกะวันนี้';
+      } else {
+        scope.textContent = 'ช่าง · รายการของ ' + (techName || 'ฉัน') + ' · กะ' + (SHIFT_TH[viewShift] || viewShift || '-');
+      }
+    }
+
+    function cleanTime(t) {
+      if (!t) return '';
+      let s = String(t).trim();
+      // ตัด timezone ยาวๆ ออก
+      s = s.replace(/\s*GMT[+-]\d{4}.*$/i, '');
+      s = s.replace(/\s*\(เวลา.*?\)\s*$/g, '');
+      s = s.replace(/\s*Indochina Time.*$/i, '');
+      s = s.replace(/\s*ICT.*$/i, '');
+      // ถ้าเป็น Date string ยาว เหลือแค่เวลา
+      const m = s.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+      if (m && /[A-Za-z]/.test(s)) return m[1];
+      return s.trim();
+    }
+
+    function nameMatch(a, b) {
+      const na = normalizeName(a), nb = normalizeName(b);
+      if (!na || !nb) return false;
+      return na === nb || na.includes(nb) || nb.includes(na);
+    }
+
+    async function loadChecklist() {
+      let records = [];
+      try {
+        const payload = {};
+        // หัวหน้าถ้าเลือกกะเดียว ส่ง filter; ทุกกะไม่ส่ง
+        if (viewShift) payload.shift = viewShift;
+        const data = await callGAS('getMachines', payload);
+        records = data.machines || [];
+      } catch (e) {
+        try {
+          records = await fetchMachinesCSV();
+          if (viewShift) records = records.filter(m => m.shift === viewShift);
+        } catch(e2) { records = []; }
+      }
+
+      // ช่าง: แสดงเฉพาะรายการที่คนในกะตัวเองตรวจ (ชื่อตรงกับ techName)
+      // หัวหน้า: ดูได้ทุกคนในกะที่เลือก / ทุกกะ
+      if (!isSupervisor) {
+        const my = techName || (profile && profile.displayName) || '';
+        const mine = records.filter(r => nameMatch(r.staff, my));
+        // ถ้าชื่อในชีทไม่ตรงเป๊ะ ใช้รายการทั้งกะแทน (ยังไม่โชว์กะอื่น)
+        records = mine.length ? mine : records;
+      }
+
+      const map = {};
+      records.forEach(r => {
+        const prev = map[r.equipId];
+        if (!prev) { map[r.equipId] = r; return; }
+        // ถ้ามีหลายรายการ เลือกผิดปกติก่อน
+        const bad = /abnormal|เสีย|ผิดปกติ/i.test(r.result || '');
+        const prevBad = /abnormal|เสีย|ผิดปกติ/i.test(prev.result || '');
+        if (bad && !prevBad) map[r.equipId] = r;
+      });
+
+      checklistData = ALL_EQUIPMENT.map(eq => {
+        const r = map[eq.id];
+        if (!r) return { equipId: eq.id, name: eq.name, status: 'missed', result: 'ไม่ได้ตรวจสอบ', note:'', time:'', staff:'' };
+        const isBad = /abnormal|เสีย|ผิดปกติ/i.test(r.result) || (r.note && /abnormal|เสีย|ผิดปกติ/i.test(r.note));
+        return {
+          equipId: eq.id, name: r.name || eq.name,
+          status: isBad ? 'bad' : 'checked',
+          result: r.result || 'Normal', note: r.note || '',
+          time: cleanTime(r.time || ''), staff: r.staff || '',
+          shift: r.shift || ''
+        };
+      });
+      updateShiftChips();
+      renderChecklist();
+      updateCLStats();
+      updateSubmitSummary();
+    }
+
+    async function fetchMachinesCSV() {
+      const url = 'https://docs.google.com/spreadsheets/d/'+SHEET_MACHINES_ID+'/gviz/tq?tqx=out:csv&gid='+SHEET_MACHINES_GID;
+      const res = await fetch(url);
+      return parseMachinesCSV(await res.text());
+    }
+
+    function parseMachinesCSV(text) {
+      const rows = parseCSV(text);
+      if (rows.length < 2) return [];
+      const today = todayStr();
+      const list = [];
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        const date = (r[1]||'').trim();
+        if (!isSameDay(date, today)) continue;
+        list.push({
+          id: r[0], date, time: r[2]||'', equipId: (r[3]||'').trim(),
+          name: r[4]||'', result: (r[8]||'').trim(), note: r[9]||'',
+          shift: (r[10]||'').trim(), staff: (r[11]||'').trim()
+        });
+      }
+      return list;
+    }
+
+    function updateCLStats() {
+      document.getElementById('st-ok').textContent = checklistData.filter(x => x.status === 'checked').length;
+      document.getElementById('st-miss').textContent = checklistData.filter(x => x.status === 'missed').length;
+      document.getElementById('st-bad').textContent = checklistData.filter(x => x.status === 'bad').length;
+    }
+
+    function filterCL(f) {
+      clFilter = f;
+      document.querySelectorAll('.cl-f').forEach(b => {
+        const on = b.getAttribute('data-f') === f;
+        b.className = 'cl-f chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium ' +
+          (on ? 'bg-ink-900 text-white' : 'bg-white border border-ink-200 text-ink-600');
+      });
+      renderChecklist();
+    }
+
+    function renderChecklist() {
+      const el = document.getElementById('checklist-list');
+      const list = checklistData.filter(x => clFilter === 'all' || x.status === clFilter);
+      if (!list.length) {
+        el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">ไม่พบรายการ</div>';
+        return;
+      }
+      el.innerHTML = list.map(item => {
+        let badge = '', dot = '';
+        if (item.status === 'missed') {
+          badge = '<span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-100">ไม่ได้ตรวจสอบ</span>';
+          dot = 'bg-amber-500';
+        } else if (item.status === 'bad') {
+          badge = '<span class="text-[11px] px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-100">ผิดปกติ</span>';
+          dot = 'bg-red-500';
+        } else {
+          badge = '<span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">ปกติ</span>';
+          dot = 'bg-emerald-500';
+        }
+        return `<div class="bg-white border border-ink-100 rounded-2xl px-3.5 py-3 shadow-soft flex items-start gap-3">
+          <span class="status-dot ${dot} mt-1.5 shrink-0"></span>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="text-sm font-medium leading-snug">${esc(item.name)}</p>
+                <p class="text-[11px] text-ink-400 mt-0.5">${esc(item.equipId)}${item.time ? ' · ' + esc(item.time) : ''}${item.staff ? ' · ' + esc(item.staff) : ''}</p>
+              </div>
+              ${badge}
+            </div>
+            ${item.note ? '<p class="text-xs text-ink-500 mt-1.5">' + esc(item.note) + '</p>' : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // ===== Jobs (for summary only) =====
+    async function loadJobs() {
+      try {
+        const data = await callGAS('getJobs', {});
+        const jobs = data.jobs || [];
+        const myName = normalizeName(techName || (profile && profile.displayName) || '');
+        myJobs = jobs.filter(j => {
+          const t = normalizeName(j.technician || '');
+          return !myName || !t || t.includes(myName) || myName.includes(t);
+        });
+      } catch (e) {
+        myJobs = [];
+      }
+      updateSubmitSummary();
+    }
+
+    function updateSubmitSummary() {
+      document.getElementById('sum-checked').textContent = checklistData.filter(x => x.status !== 'missed').length;
+      document.getElementById('sum-missed').textContent = checklistData.filter(x => x.status === 'missed').length;
+      document.getElementById('sum-jobs').textContent = myJobs.length;
+    }
+
+    // ===== Submit =====
+    async function submitReport(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-send');
+      btn.disabled = true;
+      btn.textContent = 'กำลังส่ง...';
+
+      const shiftEl = document.querySelector('input[name="shift"]:checked');
+      const shift = shiftEl ? shiftEl.value : 'Morning';
+      const missedList = checklistData.filter(x => x.status === 'missed').map(x => x.name);
+      const badList = checklistData.filter(x => x.status === 'bad').map(x => x.name + (x.note ? ': ' + x.note : ''));
+
+      const payload = {
+        tech_name: document.getElementById('tech_name').value || techName,
+        shift,
+        work_summary: document.getElementById('work_summary').value.trim(),
+        handover: '-',
+        start_time: '',
+        end_time: '',
+        issues: '-',
+        notes: document.getElementById('notes').value.trim() || '-',
+        jobs_count: myJobs.length,
+        checked_count: checklistData.filter(x => x.status !== 'missed').length,
+        missed_count: missedList.length,
+        missed_list: missedList.join(', '),
+        bad_list: badList.join(' | '),
+        jobs_list: myJobs.map(j => j.details + ' (' + j.location + ')').join('; '),
+        date: new Date().toISOString().slice(0,10)
+      };
+
+      try {
+        await callGAS('submitReport', payload);
+        showToast('ส่งรายงานสำเร็จ');
+        document.getElementById('form').reset();
+        document.getElementById('tech_name').value = techName || profile.displayName;
+        const first = document.querySelector('input[name="shift"][value="Morning"]');
+        if (first) first.checked = true;
+        goTab('myreport');
+      } catch (err) {
+        showToast('ส่งไม่สำเร็จ: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'ส่งรายงานประจำวัน';
+      }
+    }
+
+    // ===== Reports =====
+    async function loadAllReports() {
+      const el = document.getElementById('all-reports');
+      try {
+        const date = document.getElementById('filter-date').value;
+        const shift = document.getElementById('filter-shift').value;
+        const data = await callGAS('getAllReports', { date, shift });
+        allReports = data.reports || [];
+        renderReportCards(el, allReports, 'all');
+      } catch (e) {
+        el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">โหลดไม่สำเร็จ</div>';
+      }
+    }
+
+    async function loadMyReports() {
+      const el = document.getElementById('my-reports');
+      try {
+        const data = await callGAS('getHistory');
+        myReportList = data.history || [];
+        renderReportCards(el, myReportList, 'my');
+      } catch (e) {
+        el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">โหลดไม่สำเร็จ</div>';
+      }
+    }
+
+    function renderReportCards(el, list, source) {
+      if (!list.length) {
+        el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">ยังไม่มีรายงาน</div>';
+        return;
+      }
+      el.innerHTML = list.map((r, i) => {
+        const st = r.approval_status || 'รอตรวจ';
+        const ok = st === 'ยืนยันแล้ว';
+        return `<button type="button" class="w-full text-left bg-white border border-ink-100 rounded-2xl p-4 shadow-soft active:scale-[0.995] transition" onclick="openReport(${i}, '${source}')">
+          <div class="flex justify-between items-start gap-3">
+            <div class="min-w-0">
+              <p class="font-medium text-sm truncate">${source === 'all' ? esc(r.tech_name) : (esc(r.date) + ' · กะ' + (SHIFT_TH[r.shift]||r.shift))}</p>
+              <p class="text-[12px] text-ink-400 mt-0.5">${source === 'all' ? (esc(r.date) + ' · กะ' + (SHIFT_TH[r.shift]||r.shift)) : esc(r.tech_name)}</p>
+            </div>
+            <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${ok ? 'bg-brand-50 text-brand-800 border-brand-100' : 'bg-amber-50 text-amber-800 border-amber-100'}">${esc(st)}</span>
+          </div>
+          <p class="text-[13px] text-ink-600 mt-2 line-clamp-2 leading-relaxed">${esc(r.work_summary)}</p>
+        </button>`;
+      }).join('');
+    }
+
+    function openReport(idx, source) {
+      currentSource = source;
+      currentReport = (source === 'my' ? myReportList : allReports)[idx];
+      if (!currentReport) return;
+      const r = currentReport;
+      const st = r.approval_status || 'รอตรวจ';
+      const ok = st === 'ยืนยันแล้ว';
+      const isOwner = profile && r.userId && String(r.userId) === String(profile.userId);
+
+      document.getElementById('modal-body').innerHTML = `
+        <div class="space-y-4 text-sm">
+          <div class="grid grid-cols-2 gap-3">
+            <div><p class="text-[11px] text-ink-400">ช่าง</p><p class="font-medium mt-0.5">${esc(r.tech_name)}</p></div>
+            <div><p class="text-[11px] text-ink-400">กะ</p><p class="font-medium mt-0.5">${SHIFT_TH[r.shift]||esc(r.shift)}</p></div>
+            <div><p class="text-[11px] text-ink-400">วันที่</p><p class="mt-0.5">${esc(r.date)}</p></div>
+            <div><p class="text-[11px] text-ink-400">สถานะ</p>
+              <p class="mt-0.5"><span class="text-[11px] px-2 py-0.5 rounded-full border ${ok?'bg-brand-50 text-brand-800 border-brand-100':'bg-amber-50 text-amber-800 border-amber-100'}">${esc(st)}</span></p>
+            </div>
+          </div>
+          <div>
+            <p class="text-[11px] text-ink-400">สรุปงานที่ทำ</p>
+            <p class="mt-1 whitespace-pre-wrap leading-relaxed text-ink-800">${esc(r.work_summary)}</p>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="rounded-xl bg-ink-50 p-2.5 text-center"><p class="text-lg font-semibold tabular-nums">${r.jobs_count||0}</p><p class="text-[10px] text-ink-400">งานซ่อม</p></div>
+            <div class="rounded-xl bg-ink-50 p-2.5 text-center"><p class="text-lg font-semibold tabular-nums text-emerald-700">${r.checked_count||0}</p><p class="text-[10px] text-ink-400">ตรวจแล้ว</p></div>
+            <div class="rounded-xl bg-ink-50 p-2.5 text-center"><p class="text-lg font-semibold tabular-nums text-amber-700">${r.missed_count||0}</p><p class="text-[10px] text-ink-400">ไม่ได้ตรวจ</p></div>
+          </div>
+          ${r.missed_list ? '<div><p class="text-[11px] text-ink-400">รายการไม่ได้ตรวจ</p><p class="text-xs mt-1 text-amber-800 leading-relaxed">'+esc(r.missed_list)+'</p></div>' : ''}
+          ${r.bad_list ? '<div><p class="text-[11px] text-ink-400">ผิดปกติ</p><p class="text-xs mt-1 text-red-700 leading-relaxed">'+esc(r.bad_list)+'</p></div>' : ''}
+          ${r.notes && r.notes !== '-' ? '<div><p class="text-[11px] text-ink-400">หมายเหตุ</p><p class="mt-1">'+esc(r.notes)+'</p></div>' : ''}
+          ${r.approved_by ? '<div class="rounded-xl border border-ink-100 p-3 bg-ink-50/60"><p class="text-[11px] text-ink-400">ยืนยันโดย</p><p class="mt-0.5 font-medium">'+esc(r.approved_by)+' · '+esc(cleanTime(r.approved_at||''))+'</p>'+(r.approval_comment?'<p class="text-xs text-ink-600 mt-1.5 leading-relaxed">'+esc(r.approval_comment)+'</p>':'')+'</div>' : ''}
+        </div>`;
+
+      const btnApp = document.getElementById('btn-approve');
+      const btnEdit = document.getElementById('btn-edit');
+      const btnPrint = document.getElementById('btn-print');
+      const approveBox = document.getElementById('approve-box');
+      document.getElementById('approve-comment').value = '';
+
+      if (isSupervisor && !ok) {
+        btnApp.classList.remove('hidden');
+        approveBox.classList.remove('hidden');
+      } else {
+        btnApp.classList.add('hidden');
+        approveBox.classList.add('hidden');
+      }
+
+      if (isOwner && !ok) btnEdit.classList.remove('hidden');
+      else btnEdit.classList.add('hidden');
+
+      if (isSupervisor) btnPrint.classList.remove('hidden');
+      else btnPrint.classList.add('hidden');
+
+      document.getElementById('modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      currentReport = null;
+    }
+
+    async function approveCurrent() {
+      if (!isSupervisor) { showToast('เฉพาะหัวหน้าเท่านั้น'); return; }
+      if (!currentReport || !currentReport.rowId) { showToast('ไม่พบรายงาน'); return; }
+      const comment = (document.getElementById('approve-comment').value || '').trim();
+      try {
+        await callGAS('approveReport', {
+          rowId: currentReport.rowId,
+          approved_by: techName || profile.displayName,
+          approval_comment: comment
+        });
+        showToast('ยืนยันรายงานแล้ว');
+        closeModal();
+        loadAllReports();
+        if (currentSource === 'my') loadMyReports();
+      } catch (e) {
+        showToast(e.message || 'ยืนยันไม่สำเร็จ');
+      }
+    }
+
+    function openEdit() {
+      if (!currentReport) return;
+      document.getElementById('edit-shift').value = currentReport.shift || 'Morning';
+      document.getElementById('edit-summary').value = currentReport.work_summary || '';
+      document.getElementById('edit-notes').value = (currentReport.notes === '-' ? '' : (currentReport.notes || ''));
+      document.getElementById('edit-modal').classList.remove('hidden');
+    }
+    function closeEdit() {
+      document.getElementById('edit-modal').classList.add('hidden');
+    }
+
+    async function saveEdit(e) {
+      e.preventDefault();
+      if (!currentReport || !currentReport.rowId) return;
+      try {
+        await callGAS('updateReport', {
+          rowId: currentReport.rowId,
+          shift: document.getElementById('edit-shift').value,
+          work_summary: document.getElementById('edit-summary').value.trim(),
+          notes: document.getElementById('edit-notes').value.trim() || '-'
+        });
+        showToast('บันทึกการแก้ไขแล้ว');
+        closeEdit();
+        closeModal();
+        loadMyReports();
+        loadAllReports();
+      } catch (err) {
+        showToast(err.message || 'แก้ไขไม่สำเร็จ');
+      }
+    }
+
+    function buildPrintHtml(r) {
+      const printedAt = formatDateTimeShort(new Date());
+      return `
+        <div style="font-family:'IBM Plex Sans Thai',sans-serif;max-width:720px;margin:0 auto;color:#222;">
+          <div style="border-bottom:2px solid #222;padding-bottom:12px;margin-bottom:18px;">
+            <h1 style="font-size:18px;margin:0 0 4px;font-weight:600;">รายงานประจำวันช่าง</h1>
+            <p style="margin:0;font-size:12px;color:#666;">${esc(r.date)} · กะ${SHIFT_TH[r.shift]||r.shift} · ${esc(r.approval_status||'รอตรวจ')}</p>
+          </div>
+          <table style="width:100%;font-size:13px;border-collapse:collapse;">
+            <tr><td style="padding:6px 0;color:#888;width:130px;">ช่าง</td><td style="padding:6px 0;">${esc(r.tech_name)}</td></tr>
+            <tr><td style="padding:6px 0;color:#888;vertical-align:top;">สรุปงาน</td><td style="padding:6px 0;white-space:pre-wrap;line-height:1.5;">${esc(r.work_summary)}</td></tr>
+            <tr><td style="padding:6px 0;color:#888;">งานซ่อม</td><td style="padding:6px 0;">${r.jobs_count||0} รายการ</td></tr>
+            <tr><td style="padding:6px 0;color:#888;">ตรวจเครื่อง</td><td style="padding:6px 0;">ตรวจแล้ว ${r.checked_count||0} · ไม่ได้ตรวจ ${r.missed_count||0}</td></tr>
+            ${r.missed_list?`<tr><td style="padding:6px 0;color:#888;vertical-align:top;">ไม่ได้ตรวจ</td><td style="padding:6px 0;">${esc(r.missed_list)}</td></tr>`:''}
+            ${r.bad_list?`<tr><td style="padding:6px 0;color:#888;vertical-align:top;">ผิดปกติ</td><td style="padding:6px 0;">${esc(r.bad_list)}</td></tr>`:''}
+            ${r.notes&&r.notes!=='-'?`<tr><td style="padding:6px 0;color:#888;">หมายเหตุ</td><td style="padding:6px 0;">${esc(r.notes)}</td></tr>`:''}
+            ${r.approved_by?`<tr><td style="padding:6px 0;color:#888;">ยืนยันโดย</td><td style="padding:6px 0;">${esc(r.approved_by)} ${esc(cleanTime(r.approved_at||''))}</td></tr>`:''}
+            ${r.approval_comment?`<tr><td style="padding:6px 0;color:#888;">ความคิดเห็น</td><td style="padding:6px 0;">${esc(r.approval_comment)}</td></tr>`:''}
+          </table>
+          <p style="margin-top:36px;font-size:11px;color:#999;text-align:center;">พิมพ์จากระบบรายงานประจำวันช่าง · ${printedAt}</p>
+        </div>`;
+    }
+
+    function isMobileClient() {
+      try {
+        if (typeof liff !== 'undefined' && liff.isInClient && liff.isInClient()) return true;
+      } catch (e) {}
+      return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+    }
+
+    function printCurrent() {
+      if (!isSupervisor) { showToast('เฉพาะหัวหน้าเท่านั้นที่พิมพ์ได้'); return; }
+      if (!currentReport) return;
+      lastPrintHtml = buildPrintHtml(currentReport);
+      if (isMobileClient()) {
+        openPrintPreview(lastPrintHtml);
+        return;
+      }
+      const area = document.getElementById('print-area');
+      area.innerHTML = lastPrintHtml;
+      area.style.display = 'block';
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => { area.style.display = 'none'; }, 400);
+      }, 80);
+    }
+
+    function openPrintPreview(html) {
+      document.getElementById('print-preview-body').innerHTML = html;
+      document.getElementById('print-preview').classList.add('show');
+      document.getElementById('print-preview').style.display = 'flex';
+    }
+    function closePrintPreview() {
+      const el = document.getElementById('print-preview');
+      el.classList.remove('show');
+      el.style.display = 'none';
+    }
+    function printFromPreview() {
+      const area = document.getElementById('print-area');
+      area.innerHTML = lastPrintHtml || document.getElementById('print-preview-body').innerHTML;
+      area.style.display = 'block';
+      closePrintPreview();
+      setTimeout(() => {
+        try { window.print(); } catch (e) { showToast('อุปกรณ์นี้ไม่รองรับการพิมพ์โดยตรง'); }
+        setTimeout(() => { area.style.display = 'none'; }, 500);
+      }, 120);
+    }
+    async function sharePrintReport() {
+      const html = lastPrintHtml || document.getElementById('print-preview-body').innerHTML;
+      const full = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>รายงานประจำวันช่าง</title></head><body style="margin:16px;">' + html + '</body></html>';
+      try {
+        if (navigator.share) {
+          // บางมือถือแชร์ไฟล์ได้
+          const blob = new Blob([full], { type: 'text/html' });
+          const file = new File([blob], 'daily-report.html', { type: 'text/html' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'รายงานประจำวันช่าง' });
+            return;
+          }
+          await navigator.share({ title: 'รายงานประจำวันช่าง', text: (currentReport && currentReport.work_summary) || 'รายงานประจำวันช่าง' });
+          return;
+        }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+      // fallback: เปิดหน้าต่างใหม่
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.write(full);
+        w.document.close();
+        setTimeout(() => { try { w.print(); } catch(e) {} }, 300);
+      } else {
+        showToast('เปิดหน้าต่างใหม่ไม่ได้ · ลองกดพิมพ์อีกครั้ง');
+      }
+    }
+
+    // ===== API =====
+    async function callGAS(action, payload={}) {
+      const body = Object.assign({
+        action,
+        userId: profile && profile.userId,
+        displayName: profile && profile.displayName
+      }, payload);
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Error');
+      return data;
+    }
+
+    function normalizeName(s) {
+      return String(s||'').toLowerCase().replace(/\./g,'').replace(/\s+/g,' ').trim();
+    }
+    function todayStr() {
+      const d = new Date();
+      return d.getDate()+'/'+(d.getMonth()+1)+'/'+(d.getFullYear()+543);
+    }
+    function isSameDay(sheetDate, today) {
+      if (!sheetDate) return false;
+      const t = today.replace(/^0/,'').replace(/\/0/g,'/');
+      const s = String(sheetDate).trim().replace(/^0/,'').replace(/\/0/g,'/');
+      if (s === t) return true;
+      const pa = s.split(/[\/\-]/), pb = t.split('/');
+      if (pa.length >= 2 && pb.length >= 2) return parseInt(pa[0])===parseInt(pb[0]) && parseInt(pa[1])===parseInt(pb[1]);
+      return false;
+    }
+    function formatThai(d) {
+      return d.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', weekday:'short', day:'numeric', month:'short', year:'numeric' });
+    }
+    function formatDateTimeShort(d) {
+      // ไม่ใส่ชื่อโซนเวลา เช่น GMT+0700
+      return d.toLocaleString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      });
+    }
+    function esc(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.remove('opacity-0');
+      t.classList.add('opacity-100');
+      setTimeout(() => { t.classList.add('opacity-0'); t.classList.remove('opacity-100'); }, 2800);
+    }
+    function parseCSV(text) {
+      const rows = [], row = [];
+      let cell = '', inQ = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (inQ) {
+          if (c === '"' && text[i+1] === '"') { cell += '"'; i++; }
+          else if (c === '"') inQ = false;
+          else cell += c;
+        } else {
+          if (c === '"') inQ = true;
+          else if (c === ',') { row.push(cell); cell = ''; }
+          else if (c === '\n' || c === '\r') {
+            if (c === '\r' && text[i+1] === '\n') i++;
+            row.push(cell); cell = '';
+            if (row.some(x => x !== '')) rows.push(row.slice());
+            row.length = 0;
+          } else cell += c;
+        }
+      }
+      if (cell || row.length) { row.push(cell); rows.push(row); }
+      return rows;
+    }
+  </script>
 </body>
 </html>
