@@ -13,18 +13,37 @@
 <script src="p7.js"></script>
 <script src="p8.js"></script>
 <script src="p9.js"></script>
+<script src="p10.js"></script>
+<script src="p11.js"></script>
+<script src="p12.js"></script>
+<script src="p13.js"></script>
+<script src="p14.js"></script>
+<script src="p15.js"></script>
+<script src="p16.js"></script>
+<script src="p17.js"></script>
+<script src="p18.js"></script>
+<script src="p19.js"></script>
+<script src="p20.js"></script>
+<script src="p21.js"></script>
+<script src="p22.js"></script>
+<script src="p23.js"></script>
+<script src="p24.js"></script>
+<script src="p25.js"></script>
+<script src="p26.js"></script>
+<script src="p27.js"></script>
+<script src="p28.js"></script>
+<script src="p29.js"></script>
+<script src="p30.js"></script>
+<script src="p31.js"></script>
 </head><body>
 <script>
 try {
   const b64 = (window.__PARTS||[]).join('');
   const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
   const html = new TextDecoder('utf-8').decode(bin);
-  document.open();
-  document.write(html);
-  document.close();
+  document.open(); document.write(html); document.close();
 } catch (e) {
   document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px">โหลดไม่สำเร็จ: ' + e.message + '</p>';
-  console.error(e);
 }
 </script>
 </body></html>
