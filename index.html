@@ -779,13 +779,14 @@
       const ok = st === 'ยืนยันแล้ว';
       const isOwner = profile && r.userId && String(r.userId) === String(profile.userId);
 
-      const jobsHtml = r.jobs_list ? `
+     const jobsHtml = r.jobs_list ? `
         <div>
           <p class="text-[11px] text-ink-400 mb-1.5 font-medium">รายการงานซ่อม</p>
           <div class="border border-ink-100 rounded-2xl overflow-hidden bg-ink-50/50">
             <div class="grid grid-cols-12 bg-ink-100/60 px-3 py-2 text-[11px] font-semibold text-ink-600">
               <div class="col-span-4">Rooms / Locations</div>
-              <div class="col-span-8">Job Details</div>
+              <div class="col-span-5">Job Details</div>
+              <div class="col-span-3 text-right">Status</div>
             </div>
             <div class="divide-y divide-ink-100 text-xs">
               ${r.jobs_list.split(';').map(job => {
@@ -795,7 +796,8 @@
                 return `
                   <div class="grid grid-cols-12 px-3 py-2.5 items-center">
                     <div class="col-span-4 font-medium text-ink-700">${esc(location)}</div>
-                    <div class="col-span-8 text-ink-800">${esc(details)}</div>
+                    <div class="col-span-5 text-ink-800">${esc(details)}</div>
+                    <div class="col-span-3 text-right text-ink-500">-</div>
                   </div>
                 `;
               }).join('')}
