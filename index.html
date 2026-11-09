@@ -1011,8 +1011,11 @@
         const p = s.split(/[\/\-]/).map(x => parseInt(x, 10));
         if (p.length < 3 || p.some(Number.isNaN)) return '';
         let y, m, d;
-        if (String(s.split(/[\/\-]/)[0]).length === 4) { y = p[0]; m = p[1]; d = p[2]; }
-        else { d = p[0]; m = p[1]; y = p[2]; }
+        if (String(s.split(/[\/\-]/)[2]).length === 4 || p[2] > 2400) {
+          d = p[0]; m = p[1]; y = p[2];
+        } else {
+          y = p[0]; m = p[1]; d = p[2];
+        }
         if (y > 2400) y -= 543;
         return String(y).padStart(4, '0') + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
       }
