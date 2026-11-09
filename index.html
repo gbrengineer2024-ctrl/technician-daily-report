@@ -294,7 +294,7 @@
 
   <script>
     const LIFF_ID = '2011217041-56BP6tWK';
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbzprBFPvGcJ2Y63MSkSCkNhSNOtzEQt1SKUmBzPgJKTyavuEadC585rirVIpQJsZALPXA/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwKI4W2hFONsREpECzEvc7iNrUVDkIbEPm183X73E3KUbcwRWkJaoyaA9uDa-wcjave-Q/exec';
     const SHEET_JOBS_ID = '1Af9TWOlRtHomFe6Y2wwCaBmkZe4XtasxuxhGm8NFmGs';
     const SHEET_JOBS_GID = '880111695';
     const SHEET_MACHINES_ID = '1el9AyKCQULeQVqtTMkxTFD07lbW9VfuWeAaNOuONV8s';
@@ -382,7 +382,7 @@
       const radio = document.querySelector('input[name="shift"][value="'+shift+'"]');
       if (radio) radio.checked = true;
       document.querySelectorAll('input[name="shift"]').forEach(r => {
-        r.addEventListener('change', () => { refreshReportDateUI(); loadMachineSummary(); });
+        r.addEventListener('change', () => { refreshReportDateUI(); loadMachineSummary(); loadJobs(); });
       });
       refreshReportDateUI();
       loadMachineSummary();
@@ -458,8 +458,8 @@
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
       }
-      // กะดึก: หลังเที่ยงคืนถึงก่อน 14:30 → นับเป็นวันก่อน
-      if (shift === 'Night' && mins < (14 * 60 + 30)) {
+      // กะดึก: หลังเที่ยงคืนถึง 14:30 (รวม 14:30) → นับเป็นวันก่อน
+      if (shift === 'Night' && mins <= (14 * 60 + 30)) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
       }
@@ -591,15 +591,15 @@
     async function loadMachineSummary() {
       // ดึงข้อมูลตรวจเครื่องมาสรุปในฟอร์มเท่านั้น (ไม่แสดงรายการเต็ม)
       let records = [];
+      const shift = selectedShift();
+      const targetDate = getReportDateForShift(shift).dateISO;
       try {
-        const payload = { date: getReportDateForShift(selectedShift()).dateISO, shift: selectedShift() };
+        const payload = { date: targetDate, shift };
         const data = await callGAS('getMachines', payload);
         records = data.machines || [];
       } catch (e) {
         try {
-          records = await fetchMachinesCSV();
-          const shift = selectedShift();
-          if (shift) records = records.filter(m => !m.shift || shiftEqualsLocal(m.shift, shift));
+          records = await fetchMachinesCSV(targetDate, shift);
         } catch (e2) { records = []; }
       }
       if (!isSupervisor) {
@@ -646,21 +646,21 @@
       return loadMachineSummary();
     }
 
-    async function fetchMachinesCSV() {
+    async function fetchMachinesCSV(targetDate, shift) {
       const url = 'https://docs.google.com/spreadsheets/d/'+SHEET_MACHINES_ID+'/gviz/tq?tqx=out:csv&gid='+SHEET_MACHINES_GID;
       const res = await fetch(url);
-      return parseMachinesCSV(await res.text());
+      return parseMachinesCSV(await res.text(), targetDate, shift);
     }
 
-    function parseMachinesCSV(text) {
+    function parseMachinesCSV(text, targetDate, shift) {
       const rows = parseCSV(text);
       if (rows.length < 2) return [];
-      const today = todayStr();
       const list = [];
       for (let i = 1; i < rows.length; i++) {
         const r = rows[i];
         const date = (r[1]||'').trim();
-        if (!isSameDay(date, today)) continue;
+        if (!isSameDay(date, targetDate)) continue;
+        if (shift && r[10] && !shiftEqualsLocal(r[10], shift)) continue;
         list.push({
           id: r[0], date, time: r[2]||'', equipId: (r[3]||'').trim(),
           name: r[4]||'', result: (r[8]||'').trim(), note: r[9]||'',
@@ -1119,14 +1119,21 @@
       const d = new Date();
       return d.getDate()+'/'+(d.getMonth()+1)+'/'+(d.getFullYear()+543);
     }
-    function isSameDay(sheetDate, today) {
-      if (!sheetDate) return false;
-      const t = today.replace(/^0/,'').replace(/\/0/g,'/');
-      const s = String(sheetDate).trim().replace(/^0/,'').replace(/\/0/g,'/');
-      if (s === t) return true;
-      const pa = s.split(/[\/\-]/), pb = t.split('/');
-      if (pa.length >= 2 && pb.length >= 2) return parseInt(pa[0])===parseInt(pb[0]) && parseInt(pa[1])===parseInt(pb[1]);
-      return false;
+    function isSameDay(sheetDate, targetDate) {
+      function toISO(value) {
+        if (!value) return '';
+        const s = String(value).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+        const p = s.split(/[\/\-]/).map(x => parseInt(x, 10));
+        if (p.length < 3 || p.some(Number.isNaN)) return '';
+        let y, m, d;
+        if (String(s.split(/[\/\-]/)[0]).length === 4) { y = p[0]; m = p[1]; d = p[2]; }
+        else { d = p[0]; m = p[1]; y = p[2]; }
+        if (y > 2400) y -= 543;
+        return String(y).padStart(4, '0') + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      }
+      const a = toISO(sheetDate), b = toISO(targetDate);
+      return !!a && !!b && a === b;
     }
     function formatThai(d) {
       return d.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', weekday:'short', day:'numeric', month:'short', year:'numeric' });
