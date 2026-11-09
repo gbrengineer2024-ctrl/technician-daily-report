@@ -193,21 +193,21 @@
       <section id="v-reports" class="hidden fade-in space-y-4">
         <div class="flex items-end justify-between gap-3">
           <div>
-            <h2 class="font-semibold text-[17px] tracking-tight">รายงานทั้งหมด</h2>
-            <p class="text-xs text-ink-400 mt-0.5"></p>
+            <h2 class="font-semibold text-[17px] tracking-tight">รายงาน</h2>
           </div>
           <button onclick="loadAllReports()" class="text-brand-700 text-xs font-medium px-3 py-1.5 rounded-full bg-brand-50 border border-brand-100">รีเฟรช</button>
         </div>
-        <div class="flex gap-2">
-          <input type="date" id="filter-date" class="border border-ink-200 rounded-2xl px-3 py-2.5 text-sm flex-1 bg-white" onchange="loadAllReports()" />
-          <select id="filter-shift" onchange="loadAllReports()" class="border border-ink-200 rounded-2xl px-3 py-2.5 text-sm bg-white">
+        <div class="flex gap-2 items-center">
+          <input type="date" id="filter-date" class="border border-ink-200 rounded-2xl px-3 py-2 text-sm flex-1 bg-white" onchange="loadAllReports()" />
+          <select id="filter-shift" onchange="loadAllReports()" class="border border-ink-200 rounded-2xl px-3 py-2 text-sm bg-white">
             <option value="">ทุกกะ</option>
             <option value="Morning">เช้า</option>
             <option value="Afternoon">บ่าย</option>
             <option value="Night">ดึก</option>
           </select>
+          <button type="button" onclick="clearReportFilters()" class="text-xs text-ink-500 px-2 py-2 shrink-0">ล้าง</button>
         </div>
-        <div id="all-reports" class="space-y-2.5"><div class="skel h-24"></div></div>
+        <div id="all-reports" class="space-y-2"><div class="skel h-12"></div></div>
       </section>
 
       <!-- รายงานของฉัน -->
@@ -338,7 +338,7 @@
       const now = new Date();
       document.getElementById('today-label').textContent = formatThai(now);
       document.getElementById('submit-date').textContent = formatThai(now);
-      document.getElementById('filter-date').value = bangkokDateISO();
+      document.getElementById('filter-date').value = ''; // ว่าง = แสดงรายงานล่าสุดทั้งหมด
 
       try {
         await liff.init({ liffId: LIFF_ID });
@@ -800,15 +800,27 @@
     // ===== Reports =====
     async function loadAllReports() {
       const el = document.getElementById('all-reports');
+      el.innerHTML = '<div class="skel h-12"></div><div class="skel h-12 mt-2"></div>';
       try {
-        const date = document.getElementById('filter-date').value;
-        const shift = document.getElementById('filter-shift').value;
-        const data = await callGAS('getAllReports', { date, shift });
+        const date = (document.getElementById('filter-date').value || '').trim();
+        const shift = (document.getElementById('filter-shift').value || '').trim();
+        const payload = {};
+        if (date) payload.date = date;
+        if (shift) payload.shift = shift;
+        const data = await callGAS('getAllReports', payload);
         allReports = data.reports || [];
         renderReportCards(el, allReports, 'all');
       } catch (e) {
         el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">โหลดไม่สำเร็จ</div>';
       }
+    }
+
+    function clearReportFilters() {
+      const d = document.getElementById('filter-date');
+      const s = document.getElementById('filter-shift');
+      if (d) d.value = '';
+      if (s) s.value = '';
+      loadAllReports();
     }
 
     async function loadMyReports() {
@@ -831,6 +843,8 @@
         const st = r.approval_status || 'รอตรวจ';
         const ok = st === 'ยืนยันแล้ว';
         const comment = (r.approval_comment || '').trim();
+        const notes = (r.notes || '').trim();
+        const notesShow = notes && notes !== '-' ? notes : '';
         return `<button type="button" class="w-full text-left bg-white border border-ink-100 rounded-2xl px-3.5 py-3 shadow-soft active:scale-[0.995] transition" onclick="openReport(${i}, '${source}')">
           <div class="flex items-center gap-2 min-w-0">
             <span class="text-[13px] text-ink-700 tabular-nums shrink-0">${esc(r.date)}</span>
@@ -838,7 +852,8 @@
             <span class="text-[13px] font-medium text-ink-800 truncate flex-1">${esc(r.tech_name)}</span>
             <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${ok ? 'bg-brand-50 text-brand-800 border-brand-100' : 'bg-amber-50 text-amber-800 border-amber-100'}">${esc(st)}</span>
           </div>
-          ${comment ? '<p class="text-[12px] text-red-600 mt-1.5 leading-snug">'+esc(comment)+'</p>' : ''}
+          ${notesShow ? '<p class="text-[12px] text-red-600 mt-1.5 leading-snug">'+esc(notesShow)+'</p>' : ''}
+          ${comment ? '<p class="text-[12px] text-red-600 mt-1 leading-snug">'+esc(comment)+'</p>' : ''}
         </button>`;
       }).join('');
     }
