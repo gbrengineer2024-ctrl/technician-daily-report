@@ -421,7 +421,6 @@
 
     // ===== Checklist =====
     function detectShift() {
-      // Asia/Bangkok hour
       const h = Number(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok', hour: 'numeric', hour12: false }));
       if (h >= 6 && h < 14) return 'Morning';
       if (h >= 14 && h < 22) return 'Afternoon';
@@ -453,12 +452,10 @@
         };
       }
 
-      // กะบ่าย: หลังเที่ยงคืนถึงก่อน 05:00 → นับเป็นวันก่อน
       if (shift === 'Afternoon' && mins < 5 * 60) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
       }
-      // กะดึก: หลังเที่ยงคืนถึง 14:30 (รวม 14:30) → นับเป็นวันก่อน
       if (shift === 'Night' && mins <= (14 * 60 + 30)) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
@@ -484,7 +481,6 @@
     }
 
     function setViewShift(s) {
-      // ช่างเลือกได้เฉพาะกะของตัวเอง (ค่าเริ่มต้น); หัวหน้าเลือกได้ทุกกะ
       if (!isSupervisor && s === '') return;
       viewShift = s;
       updateShiftChips();
@@ -510,12 +506,10 @@
     function cleanTime(t) {
       if (!t) return '';
       let s = String(t).trim();
-      // ตัด timezone ยาวๆ ออก
       s = s.replace(/\s*GMT[+-]\d{4}.*$/i, '');
       s = s.replace(/\s*\(เวลา.*?\)\s*$/g, '');
       s = s.replace(/\s*Indochina Time.*$/i, '');
       s = s.replace(/\s*ICT.*$/i, '');
-      // ถ้าเป็น Date string ยาว เหลือแค่เวลา
       const m = s.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
       if (m && /[A-Za-z]/.test(s)) return m[1];
       return s.trim();
@@ -526,7 +520,6 @@
       if (!na || !nb) return false;
       return na === nb || na.includes(nb) || nb.includes(na);
     }
-
 
     async function loadStaffList() {
       try {
@@ -546,7 +539,6 @@
         box.classList.add('hidden');
         return;
       }
-      // render options
       const my = normalizeName(techName || (profile && profile.displayName) || '');
       const opts = staffList.filter(s => normalizeName(s.name) !== my);
       if (!opts.length) {
@@ -570,7 +562,7 @@
       const box = document.getElementById('co-tech-picker');
       if (box && !box.classList.contains('hidden')) {
         box.classList.add('hidden');
-        toggleCoTechPicker(); // re-open with updated highlights
+        toggleCoTechPicker();
       }
     }
 
@@ -589,7 +581,6 @@
     }
 
     async function loadMachineSummary() {
-      // ดึงข้อมูลตรวจเครื่องมาสรุปในฟอร์มเท่านั้น (ไม่แสดงรายการเต็ม)
       let records = [];
       const shift = selectedShift();
       const targetDate = getReportDateForShift(shift).dateISO;
@@ -641,7 +632,6 @@
       return norm(a) === norm(b);
     }
 
-
     async function loadChecklist() {
       return loadMachineSummary();
     }
@@ -670,58 +660,6 @@
       return list;
     }
 
-    function updateCLStats() {
-      document.getElementById('st-ok').textContent = checklistData.filter(x => x.status === 'checked').length;
-      document.getElementById('st-miss').textContent = checklistData.filter(x => x.status === 'missed').length;
-      document.getElementById('st-bad').textContent = checklistData.filter(x => x.status === 'bad').length;
-    }
-
-    function filterCL(f) {
-      clFilter = f;
-      document.querySelectorAll('.cl-f').forEach(b => {
-        const on = b.getAttribute('data-f') === f;
-        b.className = 'cl-f chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium ' +
-          (on ? 'bg-ink-900 text-white' : 'bg-white border border-ink-200 text-ink-600');
-      });
-      renderChecklist();
-    }
-
-    function renderChecklist() {
-      const el = document.getElementById('checklist-list');
-      const list = checklistData.filter(x => clFilter === 'all' || x.status === clFilter);
-      if (!list.length) {
-        el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">ไม่พบรายการ</div>';
-        return;
-      }
-      el.innerHTML = list.map(item => {
-        let badge = '', dot = '';
-        if (item.status === 'missed') {
-          badge = '<span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-100">ไม่ได้ตรวจสอบ</span>';
-          dot = 'bg-amber-500';
-        } else if (item.status === 'bad') {
-          badge = '<span class="text-[11px] px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-100">ผิดปกติ</span>';
-          dot = 'bg-red-500';
-        } else {
-          badge = '<span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">ปกติ</span>';
-          dot = 'bg-emerald-500';
-        }
-        return `<div class="bg-white border border-ink-100 rounded-2xl px-3.5 py-3 shadow-soft flex items-start gap-3">
-          <span class="status-dot ${dot} mt-1.5 shrink-0"></span>
-          <div class="min-w-0 flex-1">
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <p class="text-sm font-medium leading-snug">${esc(item.name)}</p>
-                <p class="text-[11px] text-ink-400 mt-0.5">${esc(item.equipId)}${item.time ? ' · ' + esc(item.time) : ''}${item.staff ? ' · ' + esc(item.staff) : ''}</p>
-              </div>
-              ${badge}
-            </div>
-            ${item.note ? '<p class="text-xs text-ink-500 mt-1.5">' + esc(item.note) + '</p>' : ''}
-          </div>
-        </div>`;
-      }).join('');
-    }
-
-    // ===== Jobs (for summary only) =====
     async function loadJobs() {
       try {
         const data = await callGAS('getJobs', { date: getReportDateForShift(selectedShift()).dateISO });
@@ -743,7 +681,6 @@
       document.getElementById('sum-jobs').textContent = myJobs.length;
     }
 
-    // ===== Submit =====
     async function submitReport(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-send');
@@ -784,8 +721,8 @@
         renderCoTechChips();
         const box = document.getElementById('co-tech-picker');
         if (box) box.classList.add('hidden');
-        const shift = detectShift();
-        const radio = document.querySelector('input[name="shift"][value="'+shift+'"]');
+        const currentShift = detectShift();
+        const radio = document.querySelector('input[name="shift"][value="'+currentShift+'"]');
         if (radio) radio.checked = true;
         refreshReportDateUI();
         goTab('myreport');
@@ -797,7 +734,6 @@
       }
     }
 
-    // ===== Reports =====
     async function loadAllReports() {
       const el = document.getElementById('all-reports');
       el.innerHTML = '<div class="skel h-12"></div><div class="skel h-12 mt-2"></div>';
@@ -1045,7 +981,6 @@
       const full = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>รายงานประจำวันช่าง</title></head><body style="margin:16px;">' + html + '</body></html>';
       try {
         if (navigator.share) {
-          // บางมือถือแชร์ไฟล์ได้
           const blob = new Blob([full], { type: 'text/html' });
           const file = new File([blob], 'daily-report.html', { type: 'text/html' });
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -1058,7 +993,6 @@
       } catch (e) {
         if (e && e.name === 'AbortError') return;
       }
-      // fallback: เปิดหน้าต่างใหม่
       const w = window.open('', '_blank');
       if (w) {
         w.document.write(full);
@@ -1069,7 +1003,6 @@
       }
     }
 
-    // ===== API =====
     async function callGAS(action, payload={}) {
       const body = Object.assign({
         action,
@@ -1106,7 +1039,7 @@
         hour12: false
       });
       const parts = Object.fromEntries(fmt.formatToParts(new Date()).filter(p => p.type !== 'literal').map(p => [p.type, p.value]));
-      return parts; // { year, month, day, hour, minute, second }
+      return parts;
     }
     function bangkokDateISO() {
       const p = bangkokNowParts();
@@ -1139,7 +1072,6 @@
       return d.toLocaleDateString('th-TH', { timeZone: 'Asia/Bangkok', weekday:'short', day:'numeric', month:'short', year:'numeric' });
     }
     function formatDateTimeShort(d) {
-      // ไม่ใส่ชื่อโซนเวลา เช่น GMT+0700
       return d.toLocaleString('th-TH', {
         timeZone: 'Asia/Bangkok',
         day: 'numeric', month: 'short', year: 'numeric',
@@ -1148,7 +1080,7 @@
     }
     function esc(s) {
       if (!s) return '';
-      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
     }
     function showToast(msg) {
       const t = document.getElementById('toast');
