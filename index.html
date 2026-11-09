@@ -118,8 +118,7 @@
         </div>
       </div>
       <nav class="flex px-1">
-        <button onclick="goTab('checklist')" id="t-checklist" class="nav-item on flex-1 py-3 text-[13px] text-ink-500">ตรวจเครื่อง</button>
-        <button onclick="goTab('submit')" id="t-submit" class="nav-item flex-1 py-3 text-[13px] text-ink-500">ส่งรายงาน</button>
+        <button onclick="goTab('submit')" id="t-submit" class="nav-item on flex-1 py-3 text-[13px] text-ink-500">ส่งรายงาน</button>
         <button onclick="goTab('reports')" id="t-reports" class="nav-item flex-1 py-3 text-[13px] text-ink-500">ทุกรายงาน</button>
         <button onclick="goTab('myreport')" id="t-myreport" class="nav-item flex-1 py-3 text-[13px] text-ink-500">ของฉัน</button>
       </nav>
@@ -127,49 +126,8 @@
 
     <main class="px-4 py-4 space-y-4">
 
-      <!-- ตรวจเครื่อง -->
-      <section id="v-checklist" class="fade-in space-y-4">
-        <div class="flex items-end justify-between gap-3">
-          <div>
-            <h2 class="font-semibold text-[17px] tracking-tight">ตรวจเช็คเครื่องจักร</h2>
-            <p class="text-xs text-ink-400 mt-0.5" id="cl-scope-label">ข้อมูลวันนี้ · กะปัจจุบัน</p>
-          </div>
-          <button onclick="loadChecklist()" class="text-brand-700 text-xs font-medium px-3 py-1.5 rounded-full bg-brand-50 border border-brand-100">รีเฟรช</button>
-        </div>
-        <div id="cl-shift-bar" class="flex gap-2 overflow-x-auto pb-0.5">
-          <button type="button" onclick="setViewShift('Morning')" data-s="Morning" class="cl-s chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">เช้า</button>
-          <button type="button" onclick="setViewShift('Afternoon')" data-s="Afternoon" class="cl-s chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">บ่าย</button>
-          <button type="button" onclick="setViewShift('Night')" data-s="Night" class="cl-s chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">ดึก</button>
-          <button type="button" id="cl-s-all" onclick="setViewShift('')" data-s="" class="cl-s chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600 hidden">ทุกกะ</button>
-        </div>
-
-        <div class="grid grid-cols-3 gap-2.5">
-          <div class="bg-white border border-ink-100 rounded-2xl p-3.5 shadow-soft text-center">
-            <p class="text-2xl font-semibold text-emerald-600 tabular-nums" id="st-ok">-</p>
-            <p class="text-[11px] text-ink-400 mt-0.5">ตรวจแล้ว</p>
-          </div>
-          <div class="bg-white border border-ink-100 rounded-2xl p-3.5 shadow-soft text-center">
-            <p class="text-2xl font-semibold text-amber-600 tabular-nums" id="st-miss">-</p>
-            <p class="text-[11px] text-ink-400 mt-0.5">ไม่ได้ตรวจ</p>
-          </div>
-          <div class="bg-white border border-ink-100 rounded-2xl p-3.5 shadow-soft text-center">
-            <p class="text-2xl font-semibold text-red-600 tabular-nums" id="st-bad">-</p>
-            <p class="text-[11px] text-ink-400 mt-0.5">ผิดปกติ</p>
-          </div>
-        </div>
-
-        <div class="flex gap-2 overflow-x-auto pb-1">
-          <button onclick="filterCL('all')" data-f="all" class="cl-f chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-ink-900 text-white">ทั้งหมด</button>
-          <button onclick="filterCL('checked')" data-f="checked" class="cl-f chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">ตรวจแล้ว</button>
-          <button onclick="filterCL('missed')" data-f="missed" class="cl-f chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">ไม่ได้ตรวจ</button>
-          <button onclick="filterCL('bad')" data-f="bad" class="cl-f chip shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium bg-white border border-ink-200 text-ink-600">ผิดปกติ</button>
-        </div>
-
-        <div id="checklist-list" class="space-y-2"><div class="skel h-14"></div></div>
-      </section>
-
       <!-- ส่งรายงาน -->
-      <section id="v-submit" class="hidden fade-in">
+      <section id="v-submit" class="fade-in">
         <div class="bg-white border border-ink-100 rounded-3xl p-5 shadow-soft">
           <h2 class="font-semibold text-[17px] tracking-tight">ส่งรายงานประจำวัน</h2>
           <p class="text-sm text-ink-400 mt-1 mb-5" id="submit-date"></p>
@@ -196,6 +154,16 @@
                   <span class="block text-center text-sm py-2.5 rounded-2xl border border-ink-200 peer-checked:border-brand-600 peer-checked:bg-brand-50 peer-checked:text-brand-800 peer-checked:font-medium">ดึก</span>
                 </label>
               </div>
+            </div>
+
+            <div>
+              <label class="block text-[13px] font-medium text-ink-600 mb-2">ช่างร่วมกะ</label>
+              <div id="co-tech-list" class="flex flex-wrap gap-2 mb-2"></div>
+              <button type="button" onclick="toggleCoTechPicker()" id="btn-co-tech"
+                class="w-full border border-dashed border-ink-300 hover:border-brand-500 hover:bg-brand-50 text-ink-600 hover:text-brand-700 text-sm font-medium py-2.5 rounded-2xl transition">
+                + เพิ่มช่างร่วมกะ
+              </button>
+              <div id="co-tech-picker" class="hidden mt-2 border border-ink-100 rounded-2xl bg-ink-50 p-3 max-h-48 overflow-y-auto space-y-1"></div>
             </div>
 
             <div>
@@ -226,7 +194,7 @@
         <div class="flex items-end justify-between gap-3">
           <div>
             <h2 class="font-semibold text-[17px] tracking-tight">รายงานทั้งหมด</h2>
-            <p class="text-xs text-ink-400 mt-0.5">ทุกคนดูได้ · หัวหน้ายืนยันและพิมพ์ได้</p>
+            <p class="text-xs text-ink-400 mt-0.5"></p>
           </div>
           <button onclick="loadAllReports()" class="text-brand-700 text-xs font-medium px-3 py-1.5 rounded-full bg-brand-50 border border-brand-100">รีเฟรช</button>
         </div>
@@ -246,7 +214,7 @@
       <section id="v-myreport" class="hidden fade-in space-y-4">
         <div>
           <h2 class="font-semibold text-[17px] tracking-tight">รายงานของฉัน</h2>
-          <p class="text-xs text-ink-400 mt-0.5">แก้ไขได้ถ้ายังไม่ถูกยืนยัน</p>
+          <p class="text-xs text-ink-400 mt-0.5"></p>
         </div>
         <div id="my-reports" class="space-y-2.5"><div class="skel h-20"></div></div>
       </section>
@@ -361,6 +329,8 @@
     let currentReport = null;
     let currentSource = 'all';
     let lastPrintHtml = '';
+    let staffList = [];       // [{name, nickname}]
+    let selectedCoTechs = []; // [name, ...]
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -407,14 +377,18 @@
       document.getElementById('avatar').src = profile.pictureUrl || ('https://ui-avatars.com/api/?name='+encodeURIComponent(shown)+'&background=1a78f5&color=fff');
       document.getElementById('role-badge').textContent = isSupervisor ? 'หัวหน้า · Supervisor' : 'ช่าง · Technician';
       document.getElementById('tech_name').value = shown;
-      viewShift = detectShift();
-      if (isSupervisor) {
-        const allBtn = document.getElementById('cl-s-all');
-        if (allBtn) allBtn.classList.remove('hidden');
-      }
-      updateShiftChips();
-      loadChecklist();
+      // default shift radio
+      const shift = detectShift();
+      const radio = document.querySelector('input[name="shift"][value="'+shift+'"]');
+      if (radio) radio.checked = true;
+      document.querySelectorAll('input[name="shift"]').forEach(r => {
+        r.addEventListener('change', () => { refreshReportDateUI(); loadMachineSummary(); });
+      });
+      refreshReportDateUI();
+      loadMachineSummary();
       loadJobs();
+      loadStaffList();
+      goTab('submit');
     }
 
     function show(name) {
@@ -425,13 +399,13 @@
     }
 
     function goTab(name) {
-      ['checklist','submit','reports','myreport'].forEach(t => {
+      ['submit','reports','myreport'].forEach(t => {
         const view = document.getElementById('v-'+t);
         if (view) view.classList.toggle('hidden', t !== name);
         const btn = document.getElementById('t-'+t);
         if (btn) btn.classList.toggle('on', t === name);
       });
-      if (name === 'submit') updateSubmitSummary();
+      if (name === 'submit') { updateSubmitSummary(); refreshReportDateUI(); }
       if (name === 'reports') loadAllReports();
       if (name === 'myreport') loadMyReports();
     }
@@ -452,6 +426,61 @@
       if (h >= 6 && h < 14) return 'Morning';
       if (h >= 14 && h < 22) return 'Afternoon';
       return 'Night';
+    }
+
+    /**
+     * วันที่รายงานตามกะ + เวลาปัจจุบัน (Asia/Bangkok)
+     * - กะบ่าย: ส่งได้ถึง 05:00 ของวันถัดไป → แสดงเป็นวันก่อน
+     * - กะดึก: ส่งได้ถึง 14:30 ของวันถัดไป → แสดงเป็นวันก่อน
+     * - กะเช้า: วันปัจจุบัน
+     */
+    function getReportDateForShift(shift) {
+      const parts = bangkokNowParts();
+      const h = parseInt(parts.hour, 10);
+      const m = parseInt(parts.minute, 10);
+      const mins = h * 60 + m;
+      let y = parseInt(parts.year, 10);
+      let mo = parseInt(parts.month, 10);
+      let d = parseInt(parts.day, 10);
+
+      function prevDay(y, mo, d) {
+        const dt = new Date(Date.UTC(y, mo - 1, d));
+        dt.setUTCDate(dt.getUTCDate() - 1);
+        return {
+          year: dt.getUTCFullYear(),
+          month: dt.getUTCMonth() + 1,
+          day: dt.getUTCDate()
+        };
+      }
+
+      // กะบ่าย: หลังเที่ยงคืนถึงก่อน 05:00 → นับเป็นวันก่อน
+      if (shift === 'Afternoon' && mins < 5 * 60) {
+        const p = prevDay(y, mo, d);
+        y = p.year; mo = p.month; d = p.day;
+      }
+      // กะดึก: หลังเที่ยงคืนถึงก่อน 14:30 → นับเป็นวันก่อน
+      if (shift === 'Night' && mins < (14 * 60 + 30)) {
+        const p = prevDay(y, mo, d);
+        y = p.year; mo = p.month; d = p.day;
+      }
+
+      const iso = y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      const display = d + '/' + mo + '/' + (y + 543);
+      return { dateISO: iso, dateDisplay: display, year: y, month: mo, day: d };
+    }
+
+    function selectedShift() {
+      const el = document.querySelector('input[name="shift"]:checked');
+      return el ? el.value : detectShift();
+    }
+
+    function refreshReportDateUI() {
+      const shift = selectedShift();
+      const info = getReportDateForShift(shift);
+      const el = document.getElementById('submit-date');
+      if (el) {
+        el.textContent = info.dateDisplay + ' · กะ' + (SHIFT_TH[shift] || shift);
+      }
     }
 
     function setViewShift(s) {
@@ -498,40 +527,94 @@
       return na === nb || na.includes(nb) || nb.includes(na);
     }
 
-    async function loadChecklist() {
+
+    async function loadStaffList() {
+      try {
+        const data = await callGAS('getStaff', {});
+        staffList = data.staff || [];
+      } catch (e) {
+        staffList = [];
+      }
+      renderCoTechChips();
+    }
+
+    function toggleCoTechPicker() {
+      const box = document.getElementById('co-tech-picker');
+      if (!box) return;
+      const open = !box.classList.contains('hidden');
+      if (open) {
+        box.classList.add('hidden');
+        return;
+      }
+      // render options
+      const my = normalizeName(techName || (profile && profile.displayName) || '');
+      const opts = staffList.filter(s => normalizeName(s.name) !== my);
+      if (!opts.length) {
+        box.innerHTML = '<p class="text-xs text-ink-400 px-1 py-2">ไม่พบรายชื่อช่าง</p>';
+      } else {
+        box.innerHTML = opts.map(s => {
+          const on = selectedCoTechs.includes(s.name);
+          const label = s.nickname ? (s.name + ' (' + s.nickname + ')') : s.name;
+          return '<button type="button" onclick="toggleCoTech(\''+esc(s.name).replace(/'/g, "\\'")+'\')" class="w-full text-left px-3 py-2 rounded-xl text-sm '+(on ? 'bg-brand-50 text-brand-800 font-medium' : 'hover:bg-white text-ink-700')+'">'+
+            (on ? '✓ ' : '') + esc(label) + '</button>';
+        }).join('');
+      }
+      box.classList.remove('hidden');
+    }
+
+    function toggleCoTech(name) {
+      const i = selectedCoTechs.indexOf(name);
+      if (i >= 0) selectedCoTechs.splice(i, 1);
+      else selectedCoTechs.push(name);
+      renderCoTechChips();
+      const box = document.getElementById('co-tech-picker');
+      if (box && !box.classList.contains('hidden')) {
+        box.classList.add('hidden');
+        toggleCoTechPicker(); // re-open with updated highlights
+      }
+    }
+
+    function renderCoTechChips() {
+      const el = document.getElementById('co-tech-list');
+      if (!el) return;
+      if (!selectedCoTechs.length) {
+        el.innerHTML = '';
+        return;
+      }
+      el.innerHTML = selectedCoTechs.map(n =>
+        '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-brand-50 text-brand-800 border border-brand-100">'+
+        esc(n)+
+        '<button type="button" onclick="toggleCoTech(\''+esc(n).replace(/'/g,"\\'")+'\')" class="ml-0.5 text-brand-600 hover:text-red-600">×</button></span>'
+      ).join('');
+    }
+
+    async function loadMachineSummary() {
+      // ดึงข้อมูลตรวจเครื่องมาสรุปในฟอร์มเท่านั้น (ไม่แสดงรายการเต็ม)
       let records = [];
       try {
-        const payload = { date: bangkokDateISO() };
-        // หัวหน้าถ้าเลือกกะเดียว ส่ง filter; ทุกกะไม่ส่ง
-        if (viewShift) payload.shift = viewShift;
+        const payload = { date: getReportDateForShift(selectedShift()).dateISO, shift: selectedShift() };
         const data = await callGAS('getMachines', payload);
         records = data.machines || [];
       } catch (e) {
         try {
           records = await fetchMachinesCSV();
-          if (viewShift) records = records.filter(m => m.shift === viewShift);
-        } catch(e2) { records = []; }
+          const shift = selectedShift();
+          if (shift) records = records.filter(m => !m.shift || shiftEqualsLocal(m.shift, shift));
+        } catch (e2) { records = []; }
       }
-
-      // ช่าง: แสดงเฉพาะรายการที่คนในกะตัวเองตรวจ (ชื่อตรงกับ techName)
-      // หัวหน้า: ดูได้ทุกคนในกะที่เลือก / ทุกกะ
       if (!isSupervisor) {
         const my = techName || (profile && profile.displayName) || '';
         const mine = records.filter(r => nameMatch(r.staff, my));
-        // ถ้าชื่อในชีทไม่ตรงเป๊ะ ใช้รายการทั้งกะแทน (ยังไม่โชว์กะอื่น)
-        records = mine.length ? mine : records;
+        if (mine.length) records = mine;
       }
-
       const map = {};
       records.forEach(r => {
         const prev = map[r.equipId];
         if (!prev) { map[r.equipId] = r; return; }
-        // ถ้ามีหลายรายการ เลือกผิดปกติก่อน
         const bad = /abnormal|เสีย|ผิดปกติ/i.test(r.result || '');
         const prevBad = /abnormal|เสีย|ผิดปกติ/i.test(prev.result || '');
         if (bad && !prevBad) map[r.equipId] = r;
       });
-
       checklistData = ALL_EQUIPMENT.map(eq => {
         const r = map[eq.id];
         if (!r) return { equipId: eq.id, name: eq.name, status: 'missed', result: 'ไม่ได้ตรวจสอบ', note:'', time:'', staff:'' };
@@ -544,10 +627,23 @@
           shift: r.shift || ''
         };
       });
-      updateShiftChips();
-      renderChecklist();
-      updateCLStats();
       updateSubmitSummary();
+    }
+
+    function shiftEqualsLocal(a, b) {
+      function norm(s) {
+        s = String(s || '').trim().toLowerCase();
+        if (/night|ดึก/.test(s)) return 'night';
+        if (/after|บ่าย/.test(s)) return 'afternoon';
+        if (/morn|เช้า/.test(s)) return 'morning';
+        return s;
+      }
+      return norm(a) === norm(b);
+    }
+
+
+    async function loadChecklist() {
+      return loadMachineSummary();
     }
 
     async function fetchMachinesCSV() {
@@ -628,7 +724,7 @@
     // ===== Jobs (for summary only) =====
     async function loadJobs() {
       try {
-        const data = await callGAS('getJobs', { date: bangkokDateISO() });
+        const data = await callGAS('getJobs', { date: getReportDateForShift(selectedShift()).dateISO });
         const jobs = data.jobs || [];
         const myName = normalizeName(techName || (profile && profile.displayName) || '');
         myJobs = jobs.filter(j => {
@@ -659,6 +755,7 @@
       const missedList = checklistData.filter(x => x.status === 'missed').map(x => x.name);
       const badList = checklistData.filter(x => x.status === 'bad').map(x => x.name + (x.note ? ': ' + x.note : ''));
 
+      const dateInfo = getReportDateForShift(shift);
       const payload = {
         tech_name: document.getElementById('tech_name').value || techName,
         shift,
@@ -674,7 +771,8 @@
         missed_list: missedList.join(', '),
         bad_list: badList.join(' | '),
         jobs_list: myJobs.map(j => j.details + ' (' + j.location + ')').join('; '),
-        date: bangkokDateISO()
+        co_technicians: selectedCoTechs.join(', '),
+        date: dateInfo.dateISO
       };
 
       try {
@@ -682,8 +780,14 @@
         showToast('ส่งรายงานสำเร็จ');
         document.getElementById('form').reset();
         document.getElementById('tech_name').value = techName || profile.displayName;
-        const first = document.querySelector('input[name="shift"][value="Morning"]');
-        if (first) first.checked = true;
+        selectedCoTechs = [];
+        renderCoTechChips();
+        const box = document.getElementById('co-tech-picker');
+        if (box) box.classList.add('hidden');
+        const shift = detectShift();
+        const radio = document.querySelector('input[name="shift"][value="'+shift+'"]');
+        if (radio) radio.checked = true;
+        refreshReportDateUI();
         goTab('myreport');
       } catch (err) {
         showToast('ส่งไม่สำเร็จ: ' + err.message);
@@ -726,15 +830,15 @@
       el.innerHTML = list.map((r, i) => {
         const st = r.approval_status || 'รอตรวจ';
         const ok = st === 'ยืนยันแล้ว';
-        return `<button type="button" class="w-full text-left bg-white border border-ink-100 rounded-2xl p-4 shadow-soft active:scale-[0.995] transition" onclick="openReport(${i}, '${source}')">
-          <div class="flex justify-between items-start gap-3">
-            <div class="min-w-0">
-              <p class="font-medium text-sm truncate">${source === 'all' ? esc(r.tech_name) : (esc(r.date) + ' · กะ' + (SHIFT_TH[r.shift]||r.shift))}</p>
-              <p class="text-[12px] text-ink-400 mt-0.5">${source === 'all' ? (esc(r.date) + ' · กะ' + (SHIFT_TH[r.shift]||r.shift)) : esc(r.tech_name)}</p>
-            </div>
+        const comment = (r.approval_comment || '').trim();
+        return `<button type="button" class="w-full text-left bg-white border border-ink-100 rounded-2xl px-3.5 py-3 shadow-soft active:scale-[0.995] transition" onclick="openReport(${i}, '${source}')">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[13px] text-ink-700 tabular-nums shrink-0">${esc(r.date)}</span>
+            <span class="text-[12px] text-ink-400 shrink-0">กะ${SHIFT_TH[r.shift]||esc(r.shift)}</span>
+            <span class="text-[13px] font-medium text-ink-800 truncate flex-1">${esc(r.tech_name)}</span>
             <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${ok ? 'bg-brand-50 text-brand-800 border-brand-100' : 'bg-amber-50 text-amber-800 border-amber-100'}">${esc(st)}</span>
           </div>
-          <p class="text-[13px] text-ink-600 mt-2 line-clamp-2 leading-relaxed">${esc(r.work_summary)}</p>
+          ${comment ? '<p class="text-[12px] text-red-600 mt-1.5 leading-snug">'+esc(comment)+'</p>' : ''}
         </button>`;
       }).join('');
     }
@@ -758,6 +862,7 @@
               <p class="mt-0.5"><span class="text-[11px] px-2 py-0.5 rounded-full border ${ok?'bg-brand-50 text-brand-800 border-brand-100':'bg-amber-50 text-amber-800 border-amber-100'}">${esc(st)}</span></p>
             </div>
           </div>
+          ${r.co_technicians ? '<div><p class="text-[11px] text-ink-400">ช่างร่วมกะ</p><p class="mt-0.5 text-sm">'+esc(r.co_technicians)+'</p></div>' : ''}
           <div>
             <p class="text-[11px] text-ink-400">สรุปงานที่ทำ</p>
             <p class="mt-1 whitespace-pre-wrap leading-relaxed text-ink-800">${esc(r.work_summary)}</p>
