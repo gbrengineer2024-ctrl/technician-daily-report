@@ -887,6 +887,7 @@
             <div class="rounded-xl bg-ink-50 p-2.5 text-center"><p class="text-lg font-semibold tabular-nums text-emerald-700">${r.checked_count||0}</p><p class="text-[10px] text-ink-400">ตรวจแล้ว</p></div>
             <div class="rounded-xl bg-ink-50 p-2.5 text-center"><p class="text-lg font-semibold tabular-nums text-amber-700">${r.missed_count||0}</p><p class="text-[10px] text-ink-400">ไม่ได้ตรวจ</p></div>
           </div>
+          ${r.jobs_list ? '<div><p class="text-[11px] text-ink-400">รายการงานซ่อม</p><p class="text-xs mt-1 text-ink-700 leading-relaxed whitespace-pre-wrap">'+esc(r.jobs_list)+'</p></div>' : ''}
           ${r.missed_list ? '<div><p class="text-[11px] text-ink-400">รายการไม่ได้ตรวจ</p><p class="text-xs mt-1 text-amber-800 leading-relaxed">'+esc(r.missed_list)+'</p></div>' : ''}
           ${r.bad_list ? '<div><p class="text-[11px] text-ink-400">ผิดปกติ</p><p class="text-xs mt-1 text-red-700 leading-relaxed">'+esc(r.bad_list)+'</p></div>' : ''}
           ${r.notes && r.notes !== '-' ? '<div><p class="text-[11px] text-ink-400">หมายเหตุ</p><p class="mt-1">'+esc(r.notes)+'</p></div>' : ''}
@@ -983,6 +984,7 @@
             <tr><td style="padding:6px 0;color:#888;width:130px;">ช่าง</td><td style="padding:6px 0;">${esc(r.tech_name)}</td></tr>
             <tr><td style="padding:6px 0;color:#888;vertical-align:top;">สรุปงาน</td><td style="padding:6px 0;white-space:pre-wrap;line-height:1.5;">${esc(r.work_summary)}</td></tr>
             <tr><td style="padding:6px 0;color:#888;">งานซ่อม</td><td style="padding:6px 0;">${r.jobs_count||0} รายการ</td></tr>
+            ${r.jobs_list?`<tr><td style="padding:6px 0;color:#888;vertical-align:top;">รายการซ่อม</td><td style="padding:6px 0;white-space:pre-wrap;line-height:1.5;">${esc(r.jobs_list)}</td></tr>`:''}
             <tr><td style="padding:6px 0;color:#888;">ตรวจเครื่อง</td><td style="padding:6px 0;">ตรวจแล้ว ${r.checked_count||0} · ไม่ได้ตรวจ ${r.missed_count||0}</td></tr>
             ${r.missed_list?`<tr><td style="padding:6px 0;color:#888;vertical-align:top;">ไม่ได้ตรวจ</td><td style="padding:6px 0;">${esc(r.missed_list)}</td></tr>`:''}
             ${r.bad_list?`<tr><td style="padding:6px 0;color:#888;vertical-align:top;">ผิดปกติ</td><td style="padding:6px 0;">${esc(r.bad_list)}</td></tr>`:''}
