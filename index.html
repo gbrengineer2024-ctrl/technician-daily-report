@@ -43,7 +43,6 @@
       background-size: 200% 100%; animation: shimmer 1.3s infinite; border-radius: .9rem;
     }
     @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    .status-dot { width: .55rem; height: .55rem; border-radius: 999px; display: inline-block; }
     textarea, input, select { font-size: 16px; }
     @media print {
       html, body { background: #fff !important; height: auto !important; }
@@ -171,7 +170,7 @@
             </div>
 
             <div class="rounded-2xl bg-ink-50 border border-ink-100 p-3.5 text-[12px] text-ink-500 space-y-1.5">
-              <p class="font-medium text-ink-600">สรุปอัตโนมัติจากระบบ</p>
+              <p class="font-medium text-ink-600">สรุปอัตโนมัติจากระบบ (รวมช่างร่วมกะ)</p>
               <p>ตรวจเครื่องแล้ว <span id="sum-checked" class="font-semibold text-ink-800">-</span> · ไม่ได้ตรวจ <span id="sum-missed" class="font-semibold text-amber-700">-</span></p>
               <p>งานแจ้งซ่อมวันนี้ <span id="sum-jobs" class="font-semibold text-ink-800">-</span> รายการ</p>
             </div>
@@ -544,24 +543,23 @@
       const shift = selectedShift();
       const targetDate = getReportDateForShift(shift).dateISO;
 
-      // ดึงข้อมูลผ่าน CSV ตรงๆ เพื่อความรวดเร็วสูงสุด
       try {
-        records = await fetchMachinesCSV(targetDate, shift);
-      } catch (e) {
+        const payload = { date: targetDate, shift };
+        const data = await callGAS('getMachines', payload);
+        records = data.machines || [];
+      } catch (e2) {
         records = [];
       }
 
-      // หากดึงแบบ CSV ไม่สำเร็จ ค่อยสำรองด้วยการเรียกผ่าน GAS
       if (!records.length) {
         try {
-          const payload = { date: targetDate, shift };
-          const data = await callGAS('getMachines', payload);
-          records = data.machines || [];
-        } catch (e2) {
+          records = await fetchMachinesCSV(targetDate, shift);
+        } catch (e) {
           records = [];
         }
       }
 
+      // ปรับเงื่อนไขให้กรองชื่อของตนเอง + ช่างร่วมกะทั้งหมด
       if (!isSupervisor) {
         const myNames = [techName || (profile && profile.displayName) || '', ...selectedCoTechs];
         records = records.filter(r => myNames.some(name => nameMatch(r.staff, name)));
@@ -638,6 +636,8 @@
       try {
         const data = await callGAS('getJobs', { date: getReportDateForShift(selectedShift()).dateISO });
         const jobs = data.jobs || [];
+        
+        // ปรับเงื่อนไขให้กรองช่างหลักและช่างร่วมกะทั้งหมด
         const myNames = [normalizeName(techName || (profile && profile.displayName) || ''), ...selectedCoTechs.map(n => normalizeName(n))];
         
         myJobs = jobs.filter(j => {
@@ -778,6 +778,16 @@
       const ok = st === 'ยืนยันแล้ว';
       const isOwner = profile && r.userId && String(r.userId) === String(profile.userId);
 
+      // จัดการแยกรายการงานซ่อมออกเป็นรายการย่อย (Bullet)
+      const jobsHtml = r.jobs_list ? `
+        <div>
+          <p class="text-[11px] text-ink-400 mb-1">รายการงานซ่อม</p>
+          <ul class="text-xs text-ink-700 space-y-1 bg-ink-50 p-2.5 rounded-xl border border-ink-100">
+            ${r.jobs_list.split(/[,;]/).map(item => item.trim()).filter(Boolean).map(item => `<li class="flex items-start gap-1.5"><span class="text-brand-600 font-bold">•</span><span>${esc(item)}</span></li>`).join('')}
+          </ul>
+        </div>
+      ` : '';
+
       document.getElementById('modal-body').innerHTML = `
         <div class="space-y-4 text-sm">
           <div class="grid grid-cols-2 gap-3">
@@ -798,7 +808,7 @@
             <div class="rounded-xl bg-ink-50 p-2.5 text-center"><p class="text-lg font-semibold tabular-nums text-emerald-700">${r.checked_count||0}</p><p class="text-[10px] text-ink-400">ตรวจแล้ว</p></div>
             <div class="rounded-xl bg-ink-50 p-2.5 text-center"><p class="text-lg font-semibold tabular-nums text-amber-700">${r.missed_count||0}</p><p class="text-[10px] text-ink-400">ไม่ได้ตรวจ</p></div>
           </div>
-          ${r.jobs_list ? '<div><p class="text-[11px] text-ink-400">รายการงานซ่อม</p><p class="text-xs mt-1 text-ink-700 leading-relaxed whitespace-pre-wrap">'+esc(r.jobs_list)+'</p></div>' : ''}
+          ${jobsHtml}
           ${r.missed_list ? '<div><p class="text-[11px] text-ink-400">รายการไม่ได้ตรวจ</p><p class="text-xs mt-1 text-amber-800 leading-relaxed">'+esc(r.missed_list)+'</p></div>' : ''}
           ${r.bad_list ? '<div><p class="text-[11px] text-ink-400">ผิดปกติ</p><p class="text-xs mt-1 text-red-700 leading-relaxed">'+esc(r.bad_list)+'</p></div>' : ''}
           ${r.notes && r.notes !== '-' ? '<div><p class="text-[11px] text-ink-400">หมายเหตุ</p><p class="mt-1">'+esc(r.notes)+'</p></div>' : ''}
@@ -885,6 +895,7 @@
 
     function buildPrintHtml(r) {
       const printedAt = formatDateTimeShort(new Date());
+      const printJobsText = r.jobs_list ? r.jobs_list.split(/[,;]/).map(item => item.trim()).filter(Boolean).map(item => `• ${esc(item)}`).join('<br>') : '';
       return `
         <div style="font-family:'IBM Plex Sans Thai',sans-serif;max-width:720px;margin:0 auto;color:#222;">
           <div style="border-bottom:2px solid #222;padding-bottom:12px;margin-bottom:18px;">
@@ -893,9 +904,10 @@
           </div>
           <table style="width:100%;font-size:13px;border-collapse:collapse;">
             <tr><td style="padding:6px 0;color:#888;width:130px;">ช่าง</td><td style="padding:6px 0;">${esc(r.tech_name)}</td></tr>
+            ${r.co_technicians ? `<tr><td style="padding:6px 0;color:#888;">ช่างร่วมกะ</td><td style="padding:6px 0;">${esc(r.co_technicians)}</td></tr>` : ''}
             <tr><td style="padding:6px 0;color:#888;vertical-align:top;">สรุปงาน</td><td style="padding:6px 0;white-space:pre-wrap;line-height:1.5;">${esc(r.work_summary)}</td></tr>
             <tr><td style="padding:6px 0;color:#888;">งานซ่อม</td><td style="padding:6px 0;">${r.jobs_count||0} รายการ</td></tr>
-            ${r.jobs_list?`<tr><td style="padding:6px 0;color:#888;vertical-align:top;">รายการซ่อม</td><td style="padding:6px 0;white-space:pre-wrap;line-height:1.5;">${esc(r.jobs_list)}</td></tr>`:''}
+            ${printJobsText ? `<tr><td style="padding:6px 0;color:#888;vertical-align:top;">รายการซ่อม</td><td style="padding:6px 0;line-height:1.5;">${printJobsText}</td></tr>` : ''}
             <tr><td style="padding:6px 0;color:#888;">ตรวจเครื่อง</td><td style="padding:6px 0;">ตรวจแล้ว ${r.checked_count||0} · ไม่ได้ตรวจ ${r.missed_count||0}</td></tr>
             ${r.missed_list?`<tr><td style="padding:6px 0;color:#888;vertical-align:top;">ไม่ได้ตรวจ</td><td style="padding:6px 0;">${esc(r.missed_list)}</td></tr>`:''}
             ${r.bad_list?`<tr><td style="padding:6px 0;color:#888;vertical-align:top;">ผิดปกติ</td><td style="padding:6px 0;">${esc(r.bad_list)}</td></tr>`:''}
