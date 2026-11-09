@@ -171,7 +171,7 @@
             </div>
 
             <div class="rounded-2xl bg-ink-50 border border-ink-100 p-3.5 text-[12px] text-ink-500 space-y-1.5">
-              <p class="font-medium text-ink-600">สรุปอัตโนมัติจากระบบ</p>
+              <p class="font-medium text-ink-600">สรุปอัตโนมัติจากระบบ (รวมช่างร่วมกะ)</p>
               <p>ตรวจเครื่องแล้ว <span id="sum-checked" class="font-semibold text-ink-800">-</span> · ไม่ได้ตรวจ <span id="sum-missed" class="font-semibold text-amber-700">-</span></p>
               <p>งานแจ้งซ่อมวันนี้ <span id="sum-jobs" class="font-semibold text-ink-800">-</span> รายการ</p>
             </div>
@@ -371,9 +371,10 @@
         r.addEventListener('change', () => { refreshReportDateUI(); loadMachineSummary(); loadJobs(); });
       });
       refreshReportDateUI();
-      loadMachineSummary();
-      loadJobs();
-      loadStaffList();
+      loadStaffList().then(() => {
+        loadMachineSummary();
+        loadJobs();
+      });
       goTab('submit');
     }
 
@@ -520,6 +521,8 @@
         box.classList.add('hidden');
         toggleCoTechPicker();
       }
+      loadMachineSummary();
+      loadJobs();
     }
 
     function renderCoTechChips() {
@@ -540,47 +543,58 @@
       let records = [];
       const shift = selectedShift();
       const targetDate = getReportDateForShift(shift).dateISO;
+
+      // ดึงข้อมูลผ่าน CSV ตรงๆ เพื่อความรวดเร็วสูงสุด
       try {
-        const payload = { date: targetDate, shift };
-        const data = await callGAS('getMachines', payload);
-        records = data.machines || [];
+        records = await fetchMachinesCSV(targetDate, shift);
       } catch (e) {
-        try {
-          records = await fetchMachinesCSV(targetDate, shift);
-        } catch (e2) { records = []; }
+        records = [];
       }
-      // ถ้า API ฝั่ง GAS ไม่ส่งข้อมูลย้อนกลับมา หรือกรองแล้วว่าง ให้ดึงข้อมูล CSV ตรงๆ เพื่อป้องกันข้อมูลตกหล่นแบบโครงสร้างเดิม
+
+      // หากดึงแบบ CSV ไม่สำเร็จ ค่อยสำรองด้วยการเรียกผ่าน GAS
       if (!records.length) {
         try {
-          records = await fetchMachinesCSV(targetDate, shift);
-        } catch (e3) { records = []; }
+          const payload = { date: targetDate, shift };
+          const data = await callGAS('getMachines', payload);
+          records = data.machines || [];
+        } catch (e2) {
+          records = [];
+        }
       }
 
       if (!isSupervisor) {
-        const my = techName || (profile && profile.displayName) || '';
-        const mine = records.filter(r => nameMatch(r.staff, my));
-        if (mine.length) records = mine;
+        const myNames = [techName || (profile && profile.displayName) || '', ...selectedCoTechs];
+        records = records.filter(r => myNames.some(name => nameMatch(r.staff, name)));
       }
+
       const map = {};
       records.forEach(r => {
         const prev = map[r.equipId];
-        if (!prev) { map[r.equipId] = r; return; }
+        if (!prev) {
+          map[r.equipId] = r;
+          return;
+        }
         const bad = /abnormal|เสีย|ผิดปกติ/i.test(r.result || '');
         const prevBad = /abnormal|เสีย|ผิดปกติ/i.test(prev.result || '');
         if (bad && !prevBad) map[r.equipId] = r;
       });
+
       checklistData = ALL_EQUIPMENT.map(eq => {
         const r = map[eq.id];
         if (!r) return { equipId: eq.id, name: eq.name, status: 'missed', result: 'ไม่ได้ตรวจสอบ', note:'', time:'', staff:'' };
         const isBad = /abnormal|เสีย|ผิดปกติ/i.test(r.result) || (r.note && /abnormal|เสีย|ผิดปกติ/i.test(r.note));
         return {
-          equipId: eq.id, name: r.name || eq.name,
+          equipId: eq.id,
+          name: r.name || eq.name,
           status: isBad ? 'bad' : 'checked',
-          result: r.result || 'Normal', note: r.note || '',
-          time: cleanTime(r.time || ''), staff: r.staff || '',
+          result: r.result || 'Normal',
+          note: r.note || '',
+          time: cleanTime(r.time || ''),
+          staff: r.staff || '',
           shift: r.shift || ''
         };
       });
+
       updateSubmitSummary();
     }
 
@@ -596,9 +610,10 @@
     }
 
     async function fetchMachinesCSV(targetDate, shift) {
-      const url = 'https://docs.google.com/spreadsheets/d/'+SHEET_MACHINES_ID+'/gviz/tq?tqx=out:csv&gid='+SHEET_MACHINES_GID;
+      const url = 'https://docs.google.com/spreadsheets/d/' + SHEET_MACHINES_ID + '/gviz/tq?tqx=out:csv&gid=' + SHEET_MACHINES_GID + '&_=' + new Date().getTime();
       const res = await fetch(url);
-      return parseMachinesCSV(await res.text(), targetDate, shift);
+      const text = await res.text();
+      return parseMachinesCSV(text, targetDate, shift);
     }
 
     function parseMachinesCSV(text, targetDate, shift) {
@@ -623,10 +638,11 @@
       try {
         const data = await callGAS('getJobs', { date: getReportDateForShift(selectedShift()).dateISO });
         const jobs = data.jobs || [];
-        const myName = normalizeName(techName || (profile && profile.displayName) || '');
+        const myNames = [normalizeName(techName || (profile && profile.displayName) || ''), ...selectedCoTechs.map(n => normalizeName(n))];
+        
         myJobs = jobs.filter(j => {
           const t = normalizeName(j.technician || '');
-          return !myName || !t || t.includes(myName) || myName.includes(t);
+          return !myNames.length || !t || myNames.some(name => t.includes(name) || name.includes(t));
         });
       } catch (e) {
         myJobs = [];
