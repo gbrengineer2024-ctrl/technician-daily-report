@@ -793,11 +793,16 @@
                 const parts = job.trim().match(/^(.*?)\s*\((.*?)\)$/) || [job, job, '-'];
                 const details = parts[1] ? parts[1].trim() : job;
                 const location = parts[2] ? parts[2].trim() : '-';
+                
+                // ค้นหาสถานะจริงจากอาเรย์ myJobs หรือกำหนดค่าเริ่มต้น
+                const matchedJob = myJobs.find(j => j.details === details || j.location === location);
+                const statusText = (matchedJob && matchedJob.status) ? matchedJob.status : 'Completed';
+
                 return `
                   <div class="grid grid-cols-12 px-3 py-2.5 items-center">
                     <div class="col-span-4 font-medium text-ink-700">${esc(location)}</div>
                     <div class="col-span-5 text-ink-800">${esc(details)}</div>
-                    <div class="col-span-3 text-right text-ink-500">-</div>
+                    <div class="col-span-3 text-right text-brand-700 font-medium">${esc(statusText)}</div>
                   </div>
                 `;
               }).join('')}
