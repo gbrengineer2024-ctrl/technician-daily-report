@@ -782,30 +782,17 @@
      const jobsHtml = r.jobs_list ? `
         <div>
           <p class="text-[11px] text-ink-400 mb-1.5 font-medium">รายการงานซ่อม</p>
-          <div class="border border-ink-100 rounded-2xl overflow-hidden bg-ink-50/50">
-            <div class="grid grid-cols-12 bg-ink-100/60 px-3 py-2 text-[11px] font-semibold text-ink-600">
-              <div class="col-span-3">Location</div>
-              <div class="col-span-6">Job Details</div>
-              <div class="col-span-3 text-right">Status</div>
-            </div>
-            <div class="divide-y divide-ink-100 text-xs">
-              ${r.jobs_list.split(';').map(job => {
-                const parts = job.trim().match(/^(.*?)\s*\((.*?)\)$/) || [job, job, '-'];
-                const details = parts[1] ? parts[1].trim() : job;
-                const location = parts[2] ? parts[2].trim() : '-';
-                
-                const matchedJob = myJobs.find(j => j.details === details || j.location === location);
-                const statusText = (matchedJob && matchedJob.status) ? matchedJob.status : 'Completed';
+          <div class="border border-ink-100 rounded-2xl overflow-hidden bg-ink-50/50 p-2.5 text-xs font-mono space-y-1">
+            ${r.jobs_list.split(';').map(job => {
+              const parts = job.trim().match(/^(.*?)\s*\((.*?)\)$/) || [job, job, '-'];
+              const details = parts[1] ? parts[1].trim() : job;
+              const location = parts[2] ? parts[2].trim() : '-';
+              
+              const matchedJob = myJobs.find(j => j.details === details || j.location === location);
+              const statusText = (matchedJob && matchedJob.status) ? matchedJob.status : 'Completed';
 
-                return `
-                  <div class="grid grid-cols-12 px-3 py-2.5 items-center">
-                    <div class="col-span-3 font-medium text-ink-700">${esc(location)}</div>
-                    <div class="col-span-6 text-ink-800">${esc(details)}</div>
-                    <div class="col-span-3 text-right text-brand-700 font-medium">${esc(statusText)}</div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
+              return `<div>${esc(location)} | ${esc(details)} | ${esc(statusText)}</div>`;
+            }).join('')}
           </div>
         </div>
       ` : '';
