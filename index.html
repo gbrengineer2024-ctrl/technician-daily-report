@@ -781,8 +781,8 @@
 
      const jobsHtml = r.jobs_list ? `
         <div>
-          <p class="text-[11px] text-ink-400 mb-1.5 font-medium">รายการงานซ่อม</p>
-          <div class="border border-ink-100 rounded-2xl overflow-hidden bg-ink-50/50 p-2.5 text-xs font-mono space-y-1">
+          <p class="text-[11px] text-ink-400 mb-1.5 font-medium">รายการแจ้งซ่อม</p>
+          <div class="space-y-2">
             ${r.jobs_list.split(';').map(job => {
               const parts = job.trim().match(/^(.*?)\s*\((.*?)\)$/) || [job, job, '-'];
               const details = parts[1] ? parts[1].trim() : job;
@@ -791,7 +791,15 @@
               const matchedJob = myJobs.find(j => j.details === details || j.location === location);
               const statusText = (matchedJob && matchedJob.status) ? matchedJob.status : 'Completed';
 
-              return `<div>${esc(location)} | ${esc(details)} | ${esc(statusText)}</div>`;
+              return `
+                <div class="bg-white border border-ink-100 rounded-2xl p-3 shadow-soft">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-sm font-bold text-ink-800">${esc(location)}</span>
+                    <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-100 font-medium">${esc(statusText)}</span>
+                  </div>
+                  <p class="text-xs text-ink-600 leading-relaxed">${esc(details)}</p>
+                </div>
+              `;
             }).join('')}
           </div>
         </div>
