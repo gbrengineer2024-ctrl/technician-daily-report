@@ -738,29 +738,36 @@
     async function loadMyReports() {
       const el = document.getElementById('my-reports');
       try {
-        const data = await callGAS('getAllReports', {});
-        const allList = data.reports || [];
-        const myUserId = profile && profile.userId ? String(profile.userId) : '';
-        const myName = normalizeName(techName || (profile && profile.displayName) || '');
-
-        myReportList = allList.filter(r => {
-          const isOwnerByUserId = r.userId && String(r.userId) === myUserId;
-          const reportTech = normalizeName(r.tech_name || '');
-          const coTechs = normalizeName(r.co_technicians || '');
-          
-          return isOwnerByUserId || nameMatch(reportTech, myName) || coTechs.includes(myName);
-        });
-
+        const data = await callGAS('getHistory');
+        myReportList = data.history || [];
         renderReportCards(el, myReportList, 'my');
       } catch (e) {
-        try {
-          const data = await callGAS('getHistory');
-          myReportList = data.history || [];
-          renderReportCards(el, myReportList, 'my');
-        } catch (err) {
-          el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">โหลดไม่สำเร็จ</div>';
-        }
+        el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">โหลดไม่สำเร็จ</div>';
       }
+    }
+
+    function renderReportCards(el, list, source) {
+      if (!list.length) {
+        el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">ยังไม่มีรายงาน</div>';
+        return;
+      }
+      el.innerHTML = list.map((r, i) => {
+        const st = r.approval_status || 'รอตรวจ';
+        const ok = st === 'ยืนยันแล้ว';
+        const comment = (r.approval_comment || '').trim();
+        const notes = (r.notes || '').trim();
+        const notesShow = notes && notes !== '-' ? notes : '';
+        return `<button type="button" class="w-full text-left bg-white border border-ink-100 rounded-2xl px-3.5 py-3 shadow-soft active:scale-[0.995] transition" onclick="openReport(${i}, '${source}')">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[13px] text-ink-700 tabular-nums shrink-0">${esc(r.date)}</span>
+            <span class="text-[12px] text-ink-400 shrink-0">กะ${SHIFT_TH[r.shift]||esc(r.shift)}</span>
+            <span class="text-[13px] font-medium text-ink-800 truncate flex-1">${esc(r.tech_name)}</span>
+            <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${ok ? 'bg-brand-50 text-brand-800 border-brand-100' : 'bg-amber-50 text-amber-800 border-amber-100'}">${esc(st)}</span>
+          </div>
+          ${notesShow ? '<p class="text-[12px] text-red-600 mt-1.5 leading-snug">'+esc(notesShow)+'</p>' : ''}
+          ${comment ? '<p class="text-[12px] text-red-600 mt-1 leading-snug">'+esc(comment)+'</p>' : ''}
+        </button>`;
+      }).join('');
     }
 
     function openReport(idx, source) {
