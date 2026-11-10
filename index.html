@@ -686,14 +686,20 @@
       const list = [];
       for (let i = 1; i < rows.length; i++) {
         const r = rows[i];
-        const date = (r[1] || '').trim();
+        
+        // ดึงวันที่จากคอลัมน์ Index 2 (Date)
+        const date = (r[2] || '').trim();
         if (targetDate && date && !isSameDay(date, targetDate)) continue;
-        list.push({
-          location: r[2] || r[0] || '-',
-          details: r[3] || r[1] || '-',
-          technician: r[4] || r[2] || '-',
-          status: r[5] || r[3] || 'รอดำเนินการ'
-        });
+        
+        // ดึงข้อมูลตามลำดับคอลัมน์จริงใน Google Sheets
+        const location = (r[3] || '-').trim();   // Rooms or Locations
+        const details = (r[4] || '-').trim();    // Job Details
+        const status = (r[6] || 'รอดำเนินการ').trim(); // Status
+        const technician = (r[7] || '-').trim(); // Technician
+
+        if (location && details && location !== '-') {
+          list.push({ location, details, technician, status });
+        }
       }
       return list;
     }
