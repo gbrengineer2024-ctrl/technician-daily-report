@@ -662,6 +662,7 @@
         }
       }
 
+      // รวมชื่อช่างหลักและรายชื่อช่างร่วมกะทั้งหมดมาใช้ตรวจสอบการกรอง
       const myNames = [normalizeName(techName || (profile && profile.displayName) || ''), ...selectedCoTechs.map(n => normalizeName(n))];
       
       myJobs = jobs.filter(j => {
