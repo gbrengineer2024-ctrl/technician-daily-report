@@ -216,7 +216,7 @@
       <section id="v-myreport" class="hidden fade-in space-y-4">
         <div>
           <h2 class="font-semibold text-[17px] tracking-tight">รายงานของฉัน</h2>
-          <p class="text-xs text-ink-400 mt-0.5"></p>
+          <p class="text-xs text-ink-400 mt-0.5">แสดงรายงานที่คุณส่งและรายงานที่คุณมีชื่อเป็นช่างร่วมกะ</p>
         </div>
         <div id="my-reports" class="space-y-2.5"><div class="skel h-20"></div></div>
       </section>
@@ -293,7 +293,7 @@
 
   <script>
     const LIFF_ID = '2011217041-56BP6tWK';
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyUSQD0bc7IXlcjwIb15GgLWsY4tHkZxvPoKxNzojnvInMe48YPPMyX30R6OpbaddzZsA/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbx6G8kA18pDdd8kmsl9BoR22WtbsCotCsrzmioXIUDNWKF5nT0O7bfNTp1lQmQngrrwWw/exec';
     const SHEET_JOBS_ID = '1Af9TWOlRtHomFe6Y2wwCaBmkZe4XtasxuxhGm8NFmGs';
     const SHEET_JOBS_GID = '880111695';
     const SHEET_MACHINES_ID = '1el9AyKCQULeQVqtTMkxTFD07lbW9VfuWeAaNOuONV8s';
@@ -423,7 +423,7 @@
       return 'Night';
     }
 
-    // รองรับกะดึก: หากอยู่ในช่วงหลังเที่ยงคืนถึง 14:30 น. ของวันถัดไป ให้นับเป็นรายงานของวันก่อนหน้า (วันที่เริ่มกะ)
+    // รองรับกะดึก: เริ่มงาน 23:00 น. ออก 08:30 น. และลงรายงานได้ถึง 14:30 น. ของอีกวัน
     function getReportDateForShift(shift) {
       const parts = bangkokNowParts();
       const h = parseInt(parts.hour, 10);
@@ -443,6 +443,10 @@
         };
       }
 
+      if (shift === 'Afternoon' && mins < 5 * 60) {
+        const p = prevDay(y, mo, d);
+        y = p.year; mo = p.month; d = p.day;
+      }
       if (shift === 'Night' && mins <= (14 * 60 + 30)) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
@@ -642,10 +646,11 @@
       container.innerHTML = '<div class="text-xs text-ink-400 text-center py-3 bg-ink-50 rounded-2xl border border-ink-100">กำลังโหลดรายการงานซ่อม...</div>';
       
       let jobs = [];
-      const targetDate = getReportDateForShift(selectedShift()).dateISO;
+      const shift = selectedShift();
+      const targetDate = getReportDateForShift(shift).dateISO;
 
       try {
-        const data = await callGAS('getJobs', { date: targetDate, shift: selectedShift() });
+        const data = await callGAS('getJobs', { date: targetDate, shift: shift });
         jobs = data.jobs || [];
       } catch (e) {
         jobs = [];
@@ -653,7 +658,7 @@
 
       if (!jobs.length) {
         try {
-          jobs = await fetchJobsCSV(targetDate);
+          jobs = await fetchJobsCSV(targetDate, shift);
         } catch (e2) {
           jobs = [];
         }
@@ -671,25 +676,30 @@
       updateSubmitSummary();
     }
 
-    async function fetchJobsCSV(targetDate) {
+    async function fetchJobsCSV(targetDate, shift) {
       const url = 'https://docs.google.com/spreadsheets/d/' + SHEET_JOBS_ID + '/gviz/tq?tqx=out:csv&gid=' + SHEET_JOBS_GID + '&_=' + new Date().getTime();
       const res = await fetch(url);
       const text = await res.text();
-      return parseJobsCSV(text, targetDate);
+      return parseJobsCSV(text, targetDate, shift);
     }
 
-    // รองรับกะดึก: ตรวจสอบรวมวันก่อนหน้าด้วย เพื่อให้งานที่ลงช่วง 23:00 น. ก่อนเที่ยงคืนไม่ตกหล่น
-    function parseJobsCSV(text, targetDate) {
+    // รองรับกะดึกข้ามวัน: ตรวจสอบทั้งวันที่เริ่มกะ (23:00 น.) และวันถัดไป (หลังเที่ยงคืนถึง 08:30 น.)
+    function parseJobsCSV(text, targetDate, shift) {
       const rows = parseCSV(text);
       if (rows.length < 2) return [];
       
-      // คำนวณวันก่อนหน้า (prevDate) เผื่อกรณีดึงงานข้ามวันของกะดึก
+      let nextDateStr = '';
       let prevDateStr = '';
       if (targetDate) {
         const dt = new Date(targetDate + 'T00:00:00Z');
         if (!isNaN(dt.getTime())) {
-          dt.setUTCDate(dt.getUTCDate() - 1);
-          prevDateStr = dt.toISOString().slice(0, 10);
+          const dtNext = new Date(dt);
+          dtNext.setUTCDate(dt.getUTCDate() + 1);
+          nextDateStr = dtNext.toISOString().slice(0, 10);
+
+          const dtPrev = new Date(dt);
+          dtPrev.setUTCDate(dt.getUTCDate() - 1);
+          prevDateStr = dtPrev.toISOString().slice(0, 10);
         }
       }
 
@@ -698,8 +708,11 @@
         const r = rows[i];
         const date = (r[2] || '').trim();
         
-        // เช็คว่าตรงกับ targetDate หรือเป็นวันก่อนหน้า (สำหรับเคสกะดึก)
-        const matchesDate = targetDate && (isSameDay(date, targetDate) || (prevDateStr && isSameDay(date, prevDateStr)));
+        let matchesDate = targetDate && isSameDay(date, targetDate);
+        if (shift === 'Night' && targetDate) {
+          matchesDate = isSameDay(date, targetDate) || (nextDateStr && isSameDay(date, nextDateStr)) || (prevDateStr && isSameDay(date, prevDateStr));
+        }
+
         if (targetDate && date && !matchesDate) continue;
         
         const location = (r[3] || '-').trim();
@@ -822,7 +835,7 @@
       const el = document.getElementById('my-reports');
       el.innerHTML = '<div class="skel h-20"></div>';
       try {
-        const data = await callGAS('getHistory');
+        const data = await callGAS('getHistory', { techName: techName });
         myReportList = data.history || [];
         renderReportCards(el, myReportList, 'my');
       } catch (e) {
@@ -841,12 +854,17 @@
         const comment = (r.approval_comment || '').trim();
         const notes = (r.notes || '').trim();
         const notesShow = notes && notes !== '-' ? notes : '';
-        const coTechDisplay = r.co_technicians ? `<p class="text-[11px] text-brand-700 mt-0.5">ช่างร่วม: ${esc(r.co_technicians)}</p>` : '';
+        
+        // แสดงป้ายกำกับหากผู้ใช้เป็นช่างร่วมกะในรายงานฉบับนี้
+        const isCoTechRole = source === 'my' && profile && String(r.userId) !== String(profile.userId) && r.co_technicians;
+        const coBadge = isCoTechRole ? '<span class="text-[10px] px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 border border-brand-100 ml-1">ช่างร่วมกะ</span>' : '';
+        const coTechDisplay = r.co_technicians ? `<p class="text-[11px] text-ink-500 mt-0.5">ช่างร่วม: ${esc(r.co_technicians)}</p>` : '';
+
         return `<button type="button" class="w-full text-left bg-white border border-ink-100 rounded-2xl px-3.5 py-3 shadow-soft active:scale-[0.995] transition" onclick="openReport(${i}, '${source}')">
           <div class="flex items-center gap-2 min-w-0">
             <span class="text-[13px] text-ink-700 tabular-nums shrink-0">${esc(r.date)}</span>
             <span class="text-[12px] text-ink-400 shrink-0">กะ${SHIFT_TH[r.shift]||esc(r.shift)}</span>
-            <span class="text-[13px] font-medium text-ink-800 truncate flex-1">${esc(r.tech_name)}</span>
+            <span class="text-[13px] font-medium text-ink-800 truncate flex-1">${esc(r.tech_name)} ${coBadge}</span>
             <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${ok ? 'bg-brand-50 text-brand-800 border-brand-100' : 'bg-amber-50 text-amber-800 border-amber-100'}">${esc(st)}</span>
           </div>
           ${coTechDisplay}
@@ -863,7 +881,12 @@
       const r = currentReport;
       const st = r.approval_status || 'รอตรวจ';
       const ok = st === 'ยืนยันแล้ว';
+      
+      // ตรวจสอบสิทธิ์การแก้ไข: เจ้าของรายงาน หรือ ช่างร่วมกะที่มีรายชื่อในรายงานนี้ สามารถแก้ไขเพิ่มเติมได้ (หากยังไม่ยืนยัน)
       const isOwner = profile && r.userId && String(r.userId) === String(profile.userId);
+      const myNorm = normalizeName(techName || (profile && profile.displayName) || '');
+      const isCoTech = r.co_technicians && r.co_technicians.split(/[,;\n]/).some(n => normalizeName(n) && (myNorm.includes(normalizeName(n)) || normalizeName(n).includes(myNorm)));
+      const canEdit = (isOwner || isCoTech) && !ok;
 
       const jobsHtml = r.jobs_list ? `
         <div>
@@ -926,7 +949,7 @@
         approveBox.classList.add('hidden');
       }
 
-      if (isOwner && !ok) btnEdit.classList.remove('hidden');
+      if (canEdit) btnEdit.classList.remove('hidden');
       else btnEdit.classList.add('hidden');
 
       if (isSupervisor) btnPrint.classList.remove('hidden');
