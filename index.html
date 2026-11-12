@@ -423,6 +423,7 @@
       return 'Night';
     }
 
+    // รองรับกะดึก: หากอยู่ในช่วงหลังเที่ยงคืนถึง 14:30 น. ของวันถัดไป ให้นับเป็นรายงานของวันก่อนหน้า (วันที่เริ่มกะ)
     function getReportDateForShift(shift) {
       const parts = bangkokNowParts();
       const h = parseInt(parts.hour, 10);
@@ -442,10 +443,6 @@
         };
       }
 
-      if (shift === 'Afternoon' && mins < 5 * 60) {
-        const p = prevDay(y, mo, d);
-        y = p.year; mo = p.month; d = p.day;
-      }
       if (shift === 'Night' && mins <= (14 * 60 + 30)) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
@@ -648,7 +645,7 @@
       const targetDate = getReportDateForShift(selectedShift()).dateISO;
 
       try {
-        const data = await callGAS('getJobs', { date: targetDate });
+        const data = await callGAS('getJobs', { date: targetDate, shift: selectedShift() });
         jobs = data.jobs || [];
       } catch (e) {
         jobs = [];
@@ -662,7 +659,7 @@
         }
       }
 
-      // รวมชื่อช่างหลักและรายชื่อช่างร่วมกะทั้งหมดมาใช้ตรวจสอบการกรอง
+      // กรองเฉพาะงานของช่างหลักและช่างร่วมกะที่เลือกไว้
       const myNames = [normalizeName(techName || (profile && profile.displayName) || ''), ...selectedCoTechs.map(n => normalizeName(n))];
       
       myJobs = jobs.filter(j => {
@@ -681,14 +678,29 @@
       return parseJobsCSV(text, targetDate);
     }
 
+    // รองรับกะดึก: ตรวจสอบรวมวันก่อนหน้าด้วย เพื่อให้งานที่ลงช่วง 23:00 น. ก่อนเที่ยงคืนไม่ตกหล่น
     function parseJobsCSV(text, targetDate) {
       const rows = parseCSV(text);
       if (rows.length < 2) return [];
+      
+      // คำนวณวันก่อนหน้า (prevDate) เผื่อกรณีดึงงานข้ามวันของกะดึก
+      let prevDateStr = '';
+      if (targetDate) {
+        const dt = new Date(targetDate + 'T00:00:00Z');
+        if (!isNaN(dt.getTime())) {
+          dt.setUTCDate(dt.getUTCDate() - 1);
+          prevDateStr = dt.toISOString().slice(0, 10);
+        }
+      }
+
       const list = [];
       for (let i = 1; i < rows.length; i++) {
         const r = rows[i];
         const date = (r[2] || '').trim();
-        if (targetDate && date && !isSameDay(date, targetDate)) continue;
+        
+        // เช็คว่าตรงกับ targetDate หรือเป็นวันก่อนหน้า (สำหรับเคสกะดึก)
+        const matchesDate = targetDate && (isSameDay(date, targetDate) || (prevDateStr && isSameDay(date, prevDateStr)));
+        if (targetDate && date && !matchesDate) continue;
         
         const location = (r[3] || '-').trim();
         const details = (r[4] || '-').trim();
@@ -808,6 +820,7 @@
 
     async function loadMyReports() {
       const el = document.getElementById('my-reports');
+      el.innerHTML = '<div class="skel h-20"></div>';
       try {
         const data = await callGAS('getHistory');
         myReportList = data.history || [];
@@ -828,6 +841,7 @@
         const comment = (r.approval_comment || '').trim();
         const notes = (r.notes || '').trim();
         const notesShow = notes && notes !== '-' ? notes : '';
+        const coTechDisplay = r.co_technicians ? `<p class="text-[11px] text-brand-700 mt-0.5">ช่างร่วม: ${esc(r.co_technicians)}</p>` : '';
         return `<button type="button" class="w-full text-left bg-white border border-ink-100 rounded-2xl px-3.5 py-3 shadow-soft active:scale-[0.995] transition" onclick="openReport(${i}, '${source}')">
           <div class="flex items-center gap-2 min-w-0">
             <span class="text-[13px] text-ink-700 tabular-nums shrink-0">${esc(r.date)}</span>
@@ -835,6 +849,7 @@
             <span class="text-[13px] font-medium text-ink-800 truncate flex-1">${esc(r.tech_name)}</span>
             <span class="shrink-0 text-[11px] px-2 py-0.5 rounded-full border ${ok ? 'bg-brand-50 text-brand-800 border-brand-100' : 'bg-amber-50 text-amber-800 border-amber-100'}">${esc(st)}</span>
           </div>
+          ${coTechDisplay}
           ${notesShow ? '<p class="text-[12px] text-red-600 mt-1.5 leading-snug">'+esc(notesShow)+'</p>' : ''}
           ${comment ? '<p class="text-[12px] text-red-600 mt-1 leading-snug">'+esc(comment)+'</p>' : ''}
         </button>`;
