@@ -233,7 +233,7 @@
       </div>
       <div class="px-5 py-4" id="modal-body"></div>
       <div id="approve-box" class="hidden px-5 pb-2">
-        <label class="block text-[13px] font-medium text-ink-600 mb-1.5">ความคิดเห็นหัวหน้า <span class="text-ink-400 font-normal">(ไม่บังคับ)</span></label>
+        <label class="block text-[13px] font-medium text-ink-600 mb-1.5">ความคิดเห็นหัวหน้า <span class="text-ink-400 font-normal"></span></label>
         <textarea id="approve-comment" rows="2" placeholder="เช่น รับทราบ / ติดตามเพิ่มเติม..." class="w-full border border-ink-200 rounded-2xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 resize-none"></textarea>
       </div>
       <div class="px-5 pb-5 pt-2 flex flex-wrap gap-2 border-t border-ink-50">
@@ -423,7 +423,8 @@
       return 'Night';
     }
 
-    // รองรับกะดึก: เริ่มงาน 23:00 น. ออก 08:30 น. และลงรายงานได้ถึง 14:30 น. ของอีกวัน
+    // แก้ไขใหม่: กะบ่าย (Afternoon) เลิก 23:00 น. อนุญาตให้ส่งได้ถึง 05:00 น. ของวันถัดไปเท่านั้น (ถ้าเกิน 05:00 น. จะถือเป็นวันที่ปัจจุบันทันที)
+    // กะดึก (Night) เริ่ม 23:00 น. ออก 08:30 น. อนุญาตให้ส่งได้ถึง 14:30 น. ของวันถัดไป
     function getReportDateForShift(shift) {
       const parts = bangkokNowParts();
       const h = parseInt(parts.hour, 10);
@@ -443,10 +444,12 @@
         };
       }
 
-      if (shift === 'Afternoon' && mins < 5 * 60) {
+      // กะบ่าย: ถ้าส่งระหว่าง 00:00 ถึง 05:00 น. ของวันถัดไป ให้ปัดเป็นวันก่อนหน้า (แต่ถ้าเลย 05:00 น. เช่น 08:48 น. จะไม่ปัด)
+      if (shift === 'Afternoon' && mins >= 0 && mins < 5 * 60) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
       }
+      // กะดึก: ยอมให้ส่งข้ามวันได้ถึง 14:30 น.
       if (shift === 'Night' && mins <= (14 * 60 + 30)) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
@@ -664,7 +667,6 @@
         }
       }
 
-      // กรองเฉพาะงานของช่างหลักและช่างร่วมกะที่เลือกไว้
       const myNames = [normalizeName(techName || (profile && profile.displayName) || ''), ...selectedCoTechs.map(n => normalizeName(n))];
       
       myJobs = jobs.filter(j => {
@@ -683,7 +685,6 @@
       return parseJobsCSV(text, targetDate, shift);
     }
 
-    // รองรับกะดึกข้ามวัน: ตรวจสอบทั้งวันที่เริ่มกะ (23:00 น.) และวันถัดไป (หลังเที่ยงคืนถึง 08:30 น.)
     function parseJobsCSV(text, targetDate, shift) {
       const rows = parseCSV(text);
       if (rows.length < 2) return [];
@@ -855,7 +856,6 @@
         const notes = (r.notes || '').trim();
         const notesShow = notes && notes !== '-' ? notes : '';
         
-        // แสดงป้ายกำกับหากผู้ใช้เป็นช่างร่วมกะในรายงานฉบับนี้
         const isCoTechRole = source === 'my' && profile && String(r.userId) !== String(profile.userId) && r.co_technicians;
         const coBadge = isCoTechRole ? '<span class="text-[10px] px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 border border-brand-100 ml-1">ช่างร่วมกะ</span>' : '';
         const coTechDisplay = r.co_technicians ? `<p class="text-[11px] text-ink-500 mt-0.5">ช่างร่วม: ${esc(r.co_technicians)}</p>` : '';
@@ -882,7 +882,6 @@
       const st = r.approval_status || 'รอตรวจ';
       const ok = st === 'ยืนยันแล้ว';
       
-      // ตรวจสอบสิทธิ์การแก้ไข: เจ้าของรายงาน หรือ ช่างร่วมกะที่มีรายชื่อในรายงานนี้ สามารถแก้ไขเพิ่มเติมได้ (หากยังไม่ยืนยัน)
       const isOwner = profile && r.userId && String(r.userId) === String(profile.userId);
       const myNorm = normalizeName(techName || (profile && profile.displayName) || '');
       const isCoTech = r.co_technicians && r.co_technicians.split(/[,;\n]/).some(n => normalizeName(n) && (myNorm.includes(normalizeName(n)) || normalizeName(n).includes(myNorm)));
