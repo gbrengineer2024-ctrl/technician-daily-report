@@ -685,6 +685,7 @@
       return parseJobsCSV(text, targetDate, shift);
     }
 
+    // แก้ไขเฉพาะส่วนกะดึก: ให้ดึงข้อมูลงานซ่อมย้อนหลัง 1 วันโดยอัตโนมัติ
     function parseJobsCSV(text, targetDate, shift) {
       const rows = parseCSV(text);
       if (rows.length < 2) return [];
@@ -710,8 +711,9 @@
         const date = (r[2] || '').trim();
         
         let matchesDate = targetDate && isSameDay(date, targetDate);
+        // สำหรับกะดึก (Night): ขยายช่วงให้ดึงข้อมูลของวันเป้าหมาย และดึงย้อนหลัง 1 วัน (prevDateStr) รวมทั้งวันถัดไปเผื่อกรณีคาบเกี่ยว
         if (shift === 'Night' && targetDate) {
-          matchesDate = isSameDay(date, targetDate) || (nextDateStr && isSameDay(date, nextDateStr)) || (prevDateStr && isSameDay(date, prevDateStr));
+          matchesDate = isSameDay(date, targetDate) || (prevDateStr && isSameDay(date, prevDateStr)) || (nextDateStr && isSameDay(date, nextDateStr));
         }
 
         if (targetDate && date && !matchesDate) continue;
