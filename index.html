@@ -650,7 +650,10 @@
       
       let jobs = [];
       const shift = selectedShift();
-      const targetDate = getReportDateForShift(shift).dateISO;
+      const dateInfo = getReportDateForShift(shift);
+      
+      // ส่งวันที่เป้าหมายของกะไปดึงข้อมูล
+      const targetDate = dateInfo.dateISO;
 
       try {
         const data = await callGAS('getJobs', { date: targetDate, shift: shift });
@@ -685,7 +688,7 @@
       return parseJobsCSV(text, targetDate, shift);
     }
 
-    // แก้ไขเฉพาะส่วนกะดึก: ให้ดึงข้อมูลงานซ่อมย้อนหลัง 1 วันโดยอัตโนมัติ
+    // สมบูรณ์สำหรับกะดึก: ดึงข้อมูลทั้งของวันรายงาน (targetDate) และวันถัดไปที่ข้ามหลังเที่ยงคืน (nextDateStr) รวมทั้งเผื่อวันก่อนหน้า
     function parseJobsCSV(text, targetDate, shift) {
       const rows = parseCSV(text);
       if (rows.length < 2) return [];
@@ -711,9 +714,10 @@
         const date = (r[2] || '').trim();
         
         let matchesDate = targetDate && isSameDay(date, targetDate);
-        // สำหรับกะดึก (Night): ขยายช่วงให้ดึงข้อมูลของวันเป้าหมาย และดึงย้อนหลัง 1 วัน (prevDateStr) รวมทั้งวันถัดไปเผื่อกรณีคาบเกี่ยว
+        
+        // หากเป็นกะดึก (Night): ดึงข้อมูลครอบคลุมทั้งวันรายงาน (targetDate), วันถัดไปหลังเที่ยงคืน (nextDateStr) และวันก่อนหน้า (prevDateStr)
         if (shift === 'Night' && targetDate) {
-          matchesDate = isSameDay(date, targetDate) || (prevDateStr && isSameDay(date, prevDateStr)) || (nextDateStr && isSameDay(date, nextDateStr));
+          matchesDate = isSameDay(date, targetDate) || (nextDateStr && isSameDay(date, nextDateStr)) || (prevDateStr && isSameDay(date, prevDateStr));
         }
 
         if (targetDate && date && !matchesDate) continue;
