@@ -444,12 +444,13 @@
         };
       }
 
-      // กะบ่าย: ถ้าส่งระหว่าง 00:00 ถึง 05:00 น. ของวันถัดไป ให้ปัดเป็นวันก่อนหน้า (แต่ถ้าเลย 05:00 น. เช่น 08:48 น. จะไม่ปัด)
+      // กะบ่าย: ถ้าส่งหลังเที่ยงคืนถึง 05:00 น. ปัดเป็นวันก่อนหน้า
       if (shift === 'Afternoon' && mins >= 0 && mins < 5 * 60) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
       }
-      // กะดึก: ยอมให้ส่งข้ามวันได้ถึง 14:30 น.
+      
+      // กะดึก: ส่งช่วงเช้าของวันใหม่ (เช่น เช้าวันที่ 18) จะเป็นรายงานของเวร "คืนวันที่ 17"
       if (shift === 'Night' && mins <= (14 * 60 + 30)) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
@@ -694,17 +695,12 @@
       if (rows.length < 2) return [];
       
       let nextDateStr = '';
-      let prevDateStr = '';
       if (targetDate) {
         const dt = new Date(targetDate + 'T00:00:00Z');
         if (!isNaN(dt.getTime())) {
           const dtNext = new Date(dt);
           dtNext.setUTCDate(dt.getUTCDate() + 1);
           nextDateStr = dtNext.toISOString().slice(0, 10);
-
-          const dtPrev = new Date(dt);
-          dtPrev.setUTCDate(dt.getUTCDate() - 1);
-          prevDateStr = dtPrev.toISOString().slice(0, 10);
         }
       }
 
@@ -715,9 +711,9 @@
         
         let matchesDate = targetDate && isSameDay(date, targetDate);
         
-        // กะดึก (Night): ดึงข้อมูลครอบคลุมทั้งวันรายงาน (เช่น วันที่ 15) และวันถัดไปที่ข้ามหลังเที่ยงคืน (เช่น วันที่ 16)
+        // สำหรับกะดึก (Night): ดึงข้อมูลของวันเวร (เช่น 17) และวันถัดไปที่ข้ามหลังเที่ยงคืน (เช่น 18)
         if (shift === 'Night' && targetDate) {
-          matchesDate = isSameDay(date, targetDate) || (nextDateStr && isSameDay(date, nextDateStr)) || (prevDateStr && isSameDay(date, prevDateStr));
+          matchesDate = isSameDay(date, targetDate) || (nextDateStr && isSameDay(date, nextDateStr));
         }
 
         if (targetDate && date && !matchesDate) continue;
