@@ -55,7 +55,7 @@
     #print-preview.show { display: flex; }
     .bg-mesh {
       background:
-        radial-gradient(900px 420px at 10% -10%, rgba(26,120,245,.14), transparent 55%),
+        radial-gradient(900px 420px at 10% -10%, rgba(26,120,245,.14), transnt 55%),
         radial-gradient(700px 380px at 100% 0%, rgba(16,185,129,.10), transparent 50%),
         #f4f6f9;
     }
@@ -711,7 +711,7 @@
         
         let matchesDate = targetDate && isSameDay(date, targetDate);
         
-        // สำหรับกะดึก (Night): ดึงข้อมูลของวันเวร (เช่น 17) และวันถัดไปที่ข้ามหลังเที่ยงคืน (เช่น 18)
+        // สำหรับกะดึก (Night): ดึงเฉพาะ "วันเวร" (targetDate) และ "วันถัดไปหลังเที่ยงคืน" (nextDateStr) เท่านั้น (ตัดวันก่อนหน้าทิ้ง ไม่ดึงย้อน)
         if (shift === 'Night' && targetDate) {
           matchesDate = isSameDay(date, targetDate) || (nextDateStr && isSameDay(date, nextDateStr));
         }
