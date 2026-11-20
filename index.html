@@ -445,7 +445,7 @@
       }
 
       // กะบ่าย: ถ้าส่งระหว่างเที่ยงคืนถึง 05:00 น. ปัดเป็นวันก่อนหน้า
-      if (shift === 'Afternoon' && mins >= 0 && mins < 5 * 60) {
+      if (shift === 'Afternoon' && mins <= 5 * 60) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
       }
