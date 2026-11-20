@@ -293,7 +293,7 @@
 
   <script>
     const LIFF_ID = '2011217041-56BP6tWK';
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxtTPmDgbHZOiuG9730bSM05MLbxvoFkr7xPnKBtNzulqLCvPyHFxq-EV_8L-vszUfHgw/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwI9JT-y03HYdtjRGY1NZvHwGA_adXBUYVN4RauipAV2-8KjflZg2FdjesfPcCxq5kmnA/exec';
     const SHEET_JOBS_ID = '1Af9TWOlRtHomFe6Y2wwCaBmkZe4XtasxuxhGm8NFmGs';
     const SHEET_JOBS_GID = '880111695';
     const SHEET_MACHINES_ID = '1el9AyKCQULeQVqtTMkxTFD07lbW9VfuWeAaNOuONV8s';
@@ -445,7 +445,7 @@
       }
 
       // กะบ่าย: ถ้าส่งระหว่างเที่ยงคืนถึง 05:00 น. ปัดเป็นวันก่อนหน้า
-      if (shift === 'Afternoon' && mins <= 5 * 60) {
+      if (shift === 'Afternoon' && mins >= 0 && mins <= 5 * 60) {
         const p = prevDay(y, mo, d);
         y = p.year; mo = p.month; d = p.day;
       }
@@ -762,6 +762,20 @@
       btn.disabled = true;
       btn.textContent = 'กำลังส่ง...';
 
+      const refreshDate = getReportDateForShift(selectedShift()).dateISO;
+      try {
+        await Promise.all([loadMachineSummary(), loadJobs()]);
+        refreshReportDateUI();
+        if (getReportDateForShift(selectedShift()).dateISO !== refreshDate) {
+          throw new Error('วันที่รายงานเปลี่ยนระหว่างโหลดข้อมูล กรุณากดส่งอีกครั้ง');
+        }
+      } catch (err) {
+        showToast(err.message || 'โหลดข้อมูลก่อนส่งไม่สำเร็จ');
+        btn.disabled = false;
+        btn.textContent = 'ส่งรายงานประจำวัน';
+        return;
+      }
+
       const shiftEl = document.querySelector('input[name="shift"]:checked');
       const shift = shiftEl ? shiftEl.value : 'Morning';
       const missedList = checklistData.filter(x => x.status === 'missed').map(x => x.name);
@@ -838,7 +852,7 @@
       const el = document.getElementById('my-reports');
       el.innerHTML = '<div class="skel h-20"></div>';
       try {
-        const data = await callGAS('getHistory', { techName: techName });
+        const data = await callGAS('getHistory', { tech_name: techName });
         myReportList = data.history || [];
         renderReportCards(el, myReportList, 'my');
       } catch (e) {
