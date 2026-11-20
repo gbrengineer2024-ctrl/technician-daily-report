@@ -55,7 +55,7 @@
     #print-preview.show { display: flex; }
     .bg-mesh {
       background:
-        radial-gradient(900px 420px at 10% -10%, rgba(26,120,245,.14), transnt 55%),
+        radial-gradient(900px 420px at 10% -10%, rgba(26,120,245,.14), transparent 55%),
         radial-gradient(700px 380px at 100% 0%, rgba(16,185,129,.10), transparent 50%),
         #f4f6f9;
     }
@@ -289,11 +289,11 @@
     </div>
   </div>
 
-  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink-900 text-white text-sm px-5 py-3 rounded-full shadow-lift opacity-0 pointer-events-none transition-opacity z-[60] max-w-[90%] text-center no-print"></div>
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink-900 text-white text-sm px-5 py-3 rounded-full shadow-lift opacity-0 pointer-events-none transition-opacity z-[80] max-w-[90%] text-center no-print"></div>
 
   <script>
     const LIFF_ID = '2011217041-56BP6tWK';
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwI9JT-y03HYdtjRGY1NZvHwGA_adXBUYVN4RauipAV2-8KjflZg2FdjesfPcCxq5kmnA/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxIw74Zj-lJImuY_Kwccc0KE5SZjC04UdUN1-r-191aNzZsyxaaRgc7VcpvdZMSoO5GJQ/exec';
     const SHEET_JOBS_ID = '1Af9TWOlRtHomFe6Y2wwCaBmkZe4XtasxuxhGm8NFmGs';
     const SHEET_JOBS_GID = '880111695';
     const SHEET_MACHINES_ID = '1el9AyKCQULeQVqtTMkxTFD07lbW9VfuWeAaNOuONV8s';
@@ -328,6 +328,7 @@
     let lastPrintHtml = '';
     let staffList = [];
     let selectedCoTechs = [];
+    let machineReq = 0, jobsReq = 0, machinesLoadFailed = false, jobsLoadFailed = false, shiftBound = false;
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -377,9 +378,12 @@
       const shift = detectShift();
       const radio = document.querySelector('input[name="shift"][value="'+shift+'"]');
       if (radio) radio.checked = true;
-      document.querySelectorAll('input[name="shift"]').forEach(r => {
-        r.addEventListener('change', () => { refreshReportDateUI(); loadMachineSummary(); loadJobs(); });
-      });
+      if (!shiftBound) {
+        shiftBound = true;
+        document.querySelectorAll('input[name="shift"]').forEach(r => {
+          r.addEventListener('change', () => { refreshReportDateUI(); loadMachineSummary(); loadJobs(); });
+        });
+      }
       refreshReportDateUI();
       loadStaffList().then(() => {
         loadMachineSummary();
@@ -417,9 +421,9 @@
     }
 
     function detectShift() {
-      const h = Number(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok', hour: 'numeric', hour12: false }));
+      const h = parseInt(bangkokNowParts().hour, 10) % 24;
       if (h >= 6 && h < 14) return 'Morning';
-      if (h >= 14 && h < 22) return 'Afternoon';
+      if (h >= 14 && h < 23) return 'Afternoon';
       return 'Night';
     }
 
@@ -427,7 +431,7 @@
     // กะดึก (Night) เริ่ม 23:00 น. ออก 08:30 น. อนุญาตให้ส่งได้ถึง 14:30 น. ของวันถัดไป
     function getReportDateForShift(shift) {
       const parts = bangkokNowParts();
-      const h = parseInt(parts.hour, 10);
+      const h = parseInt(parts.hour, 10) % 24;
       const m = parseInt(parts.minute, 10);
       const mins = h * 60 + m;
       let y = parseInt(parts.year, 10);
@@ -487,10 +491,17 @@
       return s.trim();
     }
 
+    function nameWords(s) { return normalizeName(s).split(' ').filter(Boolean); }
+    // จับคู่ชื่อแบบ "ครบทั้งคำ" (ช่างเอ ไม่ตรงกับ ช่างเอก) และรองรับหลายชื่อคั่นด้วย , ; | /
     function nameMatch(a, b) {
-      const na = normalizeName(a), nb = normalizeName(b);
-      if (!na || !nb) return false;
-      return na === nb || na.includes(nb) || nb.includes(na);
+      const wb = nameWords(b);
+      if (!wb.length) return false;
+      return String(a || '').split(/[,;|\/]+/).some(p => {
+        const wa = nameWords(p);
+        if (!wa.length) return false;
+        const [s, l] = wa.length <= wb.length ? [wa, wb] : [wb, wa];
+        return s.every(w => l.includes(w));
+      });
     }
 
     async function loadStaffList() {
@@ -519,7 +530,7 @@
         box.innerHTML = opts.map(s => {
           const on = selectedCoTechs.includes(s.name);
           const label = s.nickname ? (s.name + ' (' + s.nickname + ')') : s.name;
-          return '<button type="button" onclick="toggleCoTech(\''+esc(s.name).replace(/'/g, "\\'")+'\')" class="w-full text-left px-3 py-2 rounded-xl text-sm '+(on ? 'bg-brand-50 text-brand-800 font-medium' : 'hover:bg-white text-ink-700')+'">'+
+          return '<button type="button" data-name="'+esc(s.name)+'" onclick="toggleCoTech(this.dataset.name)" class="w-full text-left px-3 py-2 rounded-xl text-sm '+(on ? 'bg-brand-50 text-brand-800 font-medium' : 'hover:bg-white text-ink-700')+'">'+
             (on ? '✓ ' : '') + esc(label) + '</button>';
         }).join('');
       }
@@ -550,30 +561,25 @@
       el.innerHTML = selectedCoTechs.map(n =>
         '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-brand-50 text-brand-800 border border-brand-100">'+
         esc(n)+
-        '<button type="button" onclick="toggleCoTech(\''+esc(n).replace(/'/g,"\\'")+'\')" class="ml-0.5 text-brand-600 hover:text-red-600">×</button></span>'
+        '<button type="button" data-name="'+esc(n)+'" onclick="toggleCoTech(this.dataset.name)" class="ml-0.5 text-brand-600 hover:text-red-600">×</button></span>'
       ).join('');
     }
 
     async function loadMachineSummary() {
-      let records = [];
+      const req = ++machineReq;
       const shift = selectedShift();
       const targetDate = getReportDateForShift(shift).dateISO;
+      let records = [], failed = false;
 
-      try {
-        records = await fetchMachinesCSV(targetDate, shift);
-      } catch (e) {
-        records = [];
-      }
-
+      try { records = await fetchMachinesCSV(targetDate, shift); } catch (e) { records = []; }
       if (!records.length) {
         try {
-          const payload = { date: targetDate, shift };
-          const data = await callGAS('getMachines', payload);
+          const data = await callGAS('getMachines', { date: targetDate, shift });
           records = data.machines || [];
-        } catch (e2) {
-          records = [];
-        }
+        } catch (e2) { records = []; failed = true; }
       }
+      if (req !== machineReq) return; // มีคำขอใหม่กว่า ทิ้งผลนี้
+      machinesLoadFailed = failed;
 
       const myNames = [techName || (profile && profile.displayName) || '', ...selectedCoTechs];
       records = records.filter(r => myNames.some(name => nameMatch(r.staff, name)));
@@ -646,36 +652,30 @@
     }
 
     async function loadJobs() {
+      const req = ++jobsReq;
       const container = document.getElementById('jobs-container');
       container.innerHTML = '<div class="text-xs text-ink-400 text-center py-3 bg-ink-50 rounded-2xl border border-ink-100">กำลังโหลดรายการงานซ่อม...</div>';
-      
-      let jobs = [];
+
       const shift = selectedShift();
-      const dateInfo = getReportDateForShift(shift);
-      
-      // สำหรับกะดึก dateInfo.dateISO จะถูกปัดเป็นวันก่อนหน้า (เช่น วันที่ 15)
-      const targetDate = dateInfo.dateISO;
+      const targetDate = getReportDateForShift(shift).dateISO; // กะดึกจะได้วันเวร แล้ว GAS/CSV ดึงวันถัดไปเพิ่มให้เอง
+      let jobs = [], ok = false;
 
       try {
-        const data = await callGAS('getJobs', { date: targetDate, shift: shift });
+        const data = await callGAS('getJobs', { date: targetDate, shift });
         jobs = data.jobs || [];
-      } catch (e) {
-        jobs = [];
-      }
-
+        ok = true;
+      } catch (e) { jobs = []; }
       if (!jobs.length) {
-        try {
-          jobs = await fetchJobsCSV(targetDate, shift);
-        } catch (e2) {
-          jobs = [];
-        }
+        try { jobs = await fetchJobsCSV(targetDate, shift); ok = true; } catch (e2) {}
       }
+      if (req !== jobsReq) return;
+      jobsLoadFailed = !ok;
 
-      const myNames = [normalizeName(techName || (profile && profile.displayName) || ''), ...selectedCoTechs.map(n => normalizeName(n))];
-      
+      const names = [techName || (profile && profile.displayName) || '', ...selectedCoTechs].filter(Boolean);
       myJobs = jobs.filter(j => {
-        const t = normalizeName(j.technician || '');
-        return !myNames.length || !t || myNames.some(name => t.includes(name) || name.includes(t));
+        const t = String(j.technician || '').trim();
+        if (!t || t === '-') return true; // งานที่ยังไม่มอบหมาย
+        return names.some(n => nameMatch(t, n));
       });
 
       renderJobsUI();
@@ -716,7 +716,8 @@
           matchesDate = isSameDay(date, targetDate) || (nextDateStr && isSameDay(date, nextDateStr));
         }
 
-        if (targetDate && date && !matchesDate) continue;
+        if (!date) continue;
+        if (targetDate && !matchesDate) continue;
         
         const location = (r[3] || '-').trim();
         const details = (r[4] || '-').trim();
@@ -730,8 +731,30 @@
       return list;
     }
 
+    // อ่าน jobs_list ได้ทั้งแบบ JSON (ใหม่) และข้อความ "สถานที่: รายละเอียด (ช่าง); ..." (เก่า)
+    function parseJobsList(s) {
+      s = String(s || '').trim();
+      if (!s) return [];
+      if (s[0] === '[') {
+        try {
+          const arr = JSON.parse(s);
+          if (Array.isArray(arr)) return arr.map(o => ({ location: o.l || '', details: o.d || '', technician: o.t && o.t !== '-' ? o.t : '', status: o.s || '' }));
+        } catch (e) {}
+      }
+      return s.split(/;\s*/).map(x => x.trim()).filter(Boolean).map(item => {
+        const m = item.match(/^(.*?):\s+(.*)$/);
+        const rest = m ? m[2] : item;
+        const t = rest.match(/^(.*)\s\(([^()]*)\)$/);
+        return { location: m ? m[1] : '', details: t ? t[1] : rest, technician: t && t[2] !== '-' ? t[2] : '', status: '' };
+      });
+    }
+
     function renderJobsUI() {
       const container = document.getElementById('jobs-container');
+      if (jobsLoadFailed) {
+        container.innerHTML = '<div class="text-xs text-red-600 text-center py-3 bg-red-50 rounded-2xl border border-red-100">โหลดรายการงานซ่อมไม่สำเร็จ · กดรีเฟรชข้อมูล</div>';
+        return;
+      }
       if (!myJobs.length) {
         container.innerHTML = '<div class="text-xs text-ink-400 text-center py-3 bg-ink-50 rounded-2xl border border-ink-100">ไม่มีรายการงานซ่อมในวันนี้</div>';
         return;
@@ -751,16 +774,18 @@
     }
 
     function updateSubmitSummary() {
-      document.getElementById('sum-checked').textContent = checklistData.filter(x => x.status !== 'missed').length;
-      document.getElementById('sum-missed').textContent = checklistData.filter(x => x.status === 'missed').length;
-      document.getElementById('sum-jobs').textContent = myJobs.length;
+      document.getElementById('sum-checked').textContent = machinesLoadFailed ? '-' : checklistData.filter(x => x.status !== 'missed').length;
+      document.getElementById('sum-missed').textContent = machinesLoadFailed ? '-' : checklistData.filter(x => x.status === 'missed').length;
+      document.getElementById('sum-jobs').textContent = jobsLoadFailed ? '-' : myJobs.length;
     }
 
     async function submitReport(e) {
       e.preventDefault();
       const btn = document.getElementById('btn-send');
+      if (btn.disabled) return;
       btn.disabled = true;
       btn.textContent = 'กำลังส่ง...';
+      const resetBtn = () => { btn.disabled = false; btn.textContent = 'ส่งรายงานประจำวัน'; };
 
       const refreshDate = getReportDateForShift(selectedShift()).dateISO;
       try {
@@ -769,34 +794,29 @@
         if (getReportDateForShift(selectedShift()).dateISO !== refreshDate) {
           throw new Error('วันที่รายงานเปลี่ยนระหว่างโหลดข้อมูล กรุณากดส่งอีกครั้ง');
         }
+        if (machinesLoadFailed || jobsLoadFailed) {
+          throw new Error('โหลดข้อมูลตรวจเครื่อง/งานซ่อมไม่สำเร็จ กรุณากดรีเฟรชข้อมูลแล้วส่งใหม่');
+        }
       } catch (err) {
         showToast(err.message || 'โหลดข้อมูลก่อนส่งไม่สำเร็จ');
-        btn.disabled = false;
-        btn.textContent = 'ส่งรายงานประจำวัน';
+        resetBtn();
         return;
       }
 
-      const shiftEl = document.querySelector('input[name="shift"]:checked');
-      const shift = shiftEl ? shiftEl.value : 'Morning';
+      const shift = selectedShift();
       const missedList = checklistData.filter(x => x.status === 'missed').map(x => x.name);
       const badList = checklistData.filter(x => x.status === 'bad').map(x => x.name + (x.note ? ': ' + x.note : ''));
-
       const dateInfo = getReportDateForShift(shift);
       const payload = {
-        tech_name: document.getElementById('tech_name').value || techName,
         shift,
         work_summary: document.getElementById('work_summary').value.trim(),
-        handover: '-',
-        start_time: '',
-        end_time: '',
-        issues: '-',
         notes: document.getElementById('notes').value.trim() || '-',
         jobs_count: myJobs.length,
         checked_count: checklistData.filter(x => x.status !== 'missed').length,
         missed_count: missedList.length,
         missed_list: missedList.join(', '),
         bad_list: badList.join(' | '),
-        jobs_list: myJobs.map(j => (j.location ? j.location + ': ' : '') + j.details + ' (' + (j.technician || '-') + ')').join('; '),
+        jobs_list: myJobs.length ? JSON.stringify(myJobs.map(j => ({ l: j.location || '', d: j.details || '', t: j.technician || '', s: j.status || '' }))) : '',
         co_technicians: selectedCoTechs.join(', '),
         date: dateInfo.dateISO
       };
@@ -810,16 +830,16 @@
         renderCoTechChips();
         const box = document.getElementById('co-tech-picker');
         if (box) box.classList.add('hidden');
-        const currentShift = detectShift();
-        const radio = document.querySelector('input[name="shift"][value="'+currentShift+'"]');
+        const radio = document.querySelector('input[name="shift"][value="' + detectShift() + '"]');
         if (radio) radio.checked = true;
         refreshReportDateUI();
+        loadMachineSummary();
+        loadJobs();
         goTab('myreport');
       } catch (err) {
         showToast('ส่งไม่สำเร็จ: ' + err.message);
       } finally {
-        btn.disabled = false;
-        btn.textContent = 'ส่งรายงานประจำวัน';
+        resetBtn();
       }
     }
 
@@ -900,30 +920,24 @@
       
       const isOwner = profile && r.userId && String(r.userId) === String(profile.userId);
       const myNorm = normalizeName(techName || (profile && profile.displayName) || '');
-      const isCoTech = r.co_technicians && r.co_technicians.split(/[,;\n]/).some(n => normalizeName(n) && (myNorm.includes(normalizeName(n)) || normalizeName(n).includes(myNorm)));
+      const isCoTech = !!r.co_technicians && r.co_technicians.split(/[,;\n]/).some(n => nameMatch(n, techName || (profile && profile.displayName) || ''));
       const canEdit = (isOwner || isCoTech) && !ok;
 
-      const jobsHtml = r.jobs_list ? `
+      const jobItems = parseJobsList(r.jobs_list);
+      const jobsHtml = jobItems.length ? `
         <div>
           <p class="text-[11px] text-ink-400 mb-2">รายการแจ้งซ่อม</p>
           <div class="space-y-2">
-            ${r.jobs_list.split(/[,;]/).map(item => item.trim()).filter(Boolean).map(item => {
-              const parts = item.split(':');
-              const room = parts.length > 1 ? parts[0].trim() : '-';
-              const detail = parts.length > 1 ? parts.slice(1).join(':').trim() : item;
-              return `
-                <div class="bg-ink-50 border border-ink-100 rounded-2xl p-3 flex items-center justify-between gap-2 text-xs">
-                  <div class="min-w-0">
-                    <p class="font-semibold text-ink-800 text-sm">${esc(room)}</p>
-                    <p class="text-ink-600 mt-0.5">${esc(detail)}</p>
-                  </div>
-                  <span class="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium bg-brand-50 text-brand-800 border border-brand-100">Completed</span>
+            ${jobItems.map(j => `
+              <div class="bg-ink-50 border border-ink-100 rounded-2xl p-3 flex items-center justify-between gap-2 text-xs">
+                <div class="min-w-0">
+                  <p class="font-semibold text-ink-800 text-sm">${esc(j.location || '-')}</p>
+                  <p class="text-ink-600 mt-0.5">${esc(j.details)}${j.technician ? ' (' + esc(j.technician) + ')' : ''}</p>
                 </div>
-              `;
-            }).join('')}
+                ${j.status ? `<span class="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium bg-brand-50 text-brand-800 border border-brand-100">${esc(j.status)}</span>` : ''}
+              </div>`).join('')}
           </div>
-        </div>
-      ` : '';
+        </div>` : '';
 
       document.getElementById('modal-body').innerHTML = `
         <div class="space-y-4 text-sm">
@@ -985,7 +999,7 @@
       try {
         await callGAS('approveReport', {
           rowId: currentReport.rowId,
-          approved_by: techName || profile.displayName,
+          timestamp: currentReport.timestamp,
           approval_comment: comment
         });
         showToast('ยืนยันรายงานแล้ว');
@@ -1014,6 +1028,7 @@
       try {
         await callGAS('updateReport', {
           rowId: currentReport.rowId,
+          timestamp: currentReport.timestamp,
           shift: document.getElementById('edit-shift').value,
           work_summary: document.getElementById('edit-summary').value.trim(),
           notes: document.getElementById('edit-notes').value.trim() || '-'
@@ -1030,12 +1045,12 @@
 
     function buildPrintHtml(r) {
       const printedAt = formatDateTimeShort(new Date());
-      const printJobsText = r.jobs_list ? r.jobs_list.split(/[,;]/).map(item => item.trim()).filter(Boolean).map(item => `• ${esc(item)}`).join('<br>') : '';
+      const printJobsText = parseJobsList(r.jobs_list).map(j => '• ' + esc((j.location ? j.location + ': ' : '') + j.details + (j.technician ? ' (' + j.technician + ')' : '') + (j.status ? ' [' + j.status + ']' : ''))).join('<br>');
       return `
         <div style="font-family:'IBM Plex Sans Thai',sans-serif;max-width:720px;margin:0 auto;color:#222;">
           <div style="border-bottom:2px solid #222;padding-bottom:12px;margin-bottom:18px;">
             <h1 style="font-size:18px;margin:0 0 4px;font-weight:600;">รายงานประจำวันช่าง</h1>
-            <p style="margin:0;font-size:12px;color:#666;">${esc(r.date)} · กะ${SHIFT_TH[r.shift]||r.shift} · ${esc(r.approval_status||'รอตรวจ')}</p>
+            <p style="margin:0;font-size:12px;color:#666;">${esc(r.date)} · กะ${SHIFT_TH[r.shift]||esc(r.shift)} · ${esc(r.approval_status||'รอตรวจ')}</p>
           </div>
           <table style="width:100%;font-size:13px;border-collapse:collapse;">
             <tr><td style="padding:6px 0;color:#888;width:130px;">ช่าง</td><td style="padding:6px 0;">${esc(r.tech_name)}</td></tr>
@@ -1158,7 +1173,7 @@
         timeZone: 'Asia/Bangkok',
         year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', second: '2-digit',
-        hour12: false
+        hourCycle: 'h23'
       });
       const parts = Object.fromEntries(fmt.formatToParts(new Date()).filter(p => p.type !== 'literal').map(p => [p.type, p.value]));
       return parts;
@@ -1197,7 +1212,7 @@
     }
     function esc(s) {
       if (!s) return '';
-      return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"');
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
     function showToast(msg) {
       const t = document.getElementById('toast');
