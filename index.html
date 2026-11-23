@@ -187,6 +187,8 @@
               <p>งานแจ้งซ่อมวันนี้ <span id="sum-jobs" class="font-semibold text-ink-800">-</span> รายการ</p>
             </div>
 
+            <div id="submit-warning" class="hidden mb-3 rounded-2xl border border-red-200 bg-red-50 text-red-700 text-xs p-3"></div>
+
             <button type="submit" id="btn-send" class="w-full bg-ink-900 hover:bg-ink-800 text-white font-medium py-3.5 rounded-2xl transition active:scale-[0.99]">
               ส่งรายงานประจำวัน
             </button>
@@ -210,6 +212,7 @@
           </select>
           <button type="button" onclick="clearReportFilters()" class="text-xs text-ink-500 px-2 py-2 shrink-0">ล้าง</button>
         </div>
+        <div id="late-banner" class="hidden mb-3 space-y-2"></div>
         <div id="all-reports" class="space-y-2"><div class="skel h-12"></div></div>
       </section>
 
@@ -293,7 +296,7 @@
 
   <script>
     const LIFF_ID = '2011217041-56BP6tWK';
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxIw74Zj-lJImuY_Kwccc0KE5SZjC04UdUN1-r-191aNzZsyxaaRgc7VcpvdZMSoO5GJQ/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxtTPmDgbHZOiuG9730bSM05MLbxvoFkr7xPnKBtNzulqLCvPyHFxq-EV_8L-vszUfHgw/exec';
     const SHEET_JOBS_ID = '1Af9TWOlRtHomFe6Y2wwCaBmkZe4XtasxuxhGm8NFmGs';
     const SHEET_JOBS_GID = '880111695';
     const SHEET_MACHINES_ID = '1el9AyKCQULeQVqtTMkxTFD07lbW9VfuWeAaNOuONV8s';
@@ -328,7 +331,7 @@
     let lastPrintHtml = '';
     let staffList = [];
     let selectedCoTechs = [];
-    let machineReq = 0, jobsReq = 0, machinesLoadFailed = false, jobsLoadFailed = false, shiftBound = false;
+    let submitting = false, machineReq = 0, jobsReq = 0, machinesLoadFailed = false, jobsLoadFailed = false, shiftBound = false;
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -368,8 +371,10 @@
       }
     }
 
-    function enterApp() {
+    async function enterApp() {
+      await syncServerClock();
       show('app');
+      document.getElementById('today-label').textContent = formatThai(new Date(serverNowMs()));
       const shown = techName || profile.displayName;
       document.getElementById('uname').textContent = shown;
       document.getElementById('avatar').src = profile.pictureUrl || ('https://ui-avatars.com/api/?name='+encodeURIComponent(shown)+'&background=1a78f5&color=fff');
@@ -477,6 +482,7 @@
       if (el) {
         el.textContent = info.dateDisplay + ' · กะ' + (SHIFT_TH[shift] || shift);
       }
+      updateSubmitGate();
     }
 
     function cleanTime(t) {
@@ -783,10 +789,13 @@
       e.preventDefault();
       const btn = document.getElementById('btn-send');
       if (btn.disabled) return;
+      submitting = true;
       btn.disabled = true;
       btn.textContent = 'กำลังส่ง...';
-      const resetBtn = () => { btn.disabled = false; btn.textContent = 'ส่งรายงานประจำวัน'; };
+      const resetBtn = () => { submitting = false; btn.textContent = 'ส่งรายงานประจำวัน'; updateSubmitGate(); };
 
+      const synced = await syncServerClock(); // ซิงก์เวลาเซิร์ฟเวอร์ใหม่ก่อนคำนวณวันที่ทุกครั้งที่ส่ง
+      { const g = submitGate(selectedShift(), synced); if (!g.ok) { showToast(g.msg); resetBtn(); return; } }
       const refreshDate = getReportDateForShift(selectedShift()).dateISO;
       try {
         await Promise.all([loadMachineSummary(), loadJobs()]);
@@ -818,7 +827,8 @@
         bad_list: badList.join(' | '),
         jobs_list: myJobs.length ? JSON.stringify(myJobs.map(j => ({ l: j.location || '', d: j.details || '', t: j.technician || '', s: j.status || '' }))) : '',
         co_technicians: selectedCoTechs.join(', '),
-        date: dateInfo.dateISO
+        date: dateInfo.dateISO,
+        client_ts: Date.now()
       };
 
       try {
@@ -855,6 +865,7 @@
         const data = await callGAS('getAllReports', payload);
         allReports = data.reports || [];
         renderReportCards(el, allReports, 'all');
+        renderMissingReports();
       } catch (e) {
         el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">โหลดไม่สำเร็จ</div>';
       }
@@ -1044,7 +1055,7 @@
     }
 
     function buildPrintHtml(r) {
-      const printedAt = formatDateTimeShort(new Date());
+      const printedAt = formatDateTimeShort(new Date(serverNowMs()));
       const printJobsText = parseJobsList(r.jobs_list).map(j => '• ' + esc((j.location ? j.location + ': ' : '') + j.details + (j.technician ? ' (' + j.technician + ')' : '') + (j.status ? ' [' + j.status + ']' : ''))).join('<br>');
       return `
         <div style="font-family:'IBM Plex Sans Thai',sans-serif;max-width:720px;margin:0 auto;color:#222;">
@@ -1168,6 +1179,95 @@
       return data;
     }
 
+    // ===== นาฬิกาเซิร์ฟเวอร์: ไม่ใช้เวลาในเครื่องคำนวณวันที่รายงาน =====
+    // เก็บจุดอ้างอิงเวลาเซิร์ฟเวอร์ แล้วเดินต่อด้วย performance.now() (ไม่เปลี่ยนตามการตั้งเวลาเครื่อง)
+    let clockBase = null;
+    function serverNowMs() { return clockBase ? clockBase.server + (performance.now() - clockBase.perf) : Date.now(); }
+    async function syncServerClock() {
+      try {
+        const ctrl = new AbortController();
+        const to = setTimeout(() => ctrl.abort(), 4000);
+        const t0 = performance.now();
+        const res = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'serverTime' }), signal: ctrl.signal });
+        const data = JSON.parse(await res.text());
+        clearTimeout(to);
+        const t1 = performance.now();
+        if (data && data.success && data.now) { clockBase = { server: data.now + (t1 - t0) / 2, perf: t1 }; return true; }
+      } catch (e) {}
+      return false;
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && profile) syncServerClock().then(() => refreshReportDateUI());
+    });
+
+    // ===== ช่วงเวลาที่ส่งรายงานได้ (ต้องตรงกับ SUBMIT_RULES ใน Code.gs) · เช้าไม่จำกัด =====
+    const SUBMIT_RULES = { Afternoon: { open: 840, close: 300, text: '14:00–05:00' }, Night: { open: 1380, close: 870, text: '23:00–14:30' } };
+    function nowMinsBkk() { const p = bangkokNowParts(); return (parseInt(p.hour, 10) % 24) * 60 + parseInt(p.minute, 10); }
+    function submitGate(shift, checkClock = true) {
+      // นาฬิกาเครื่อง (Date.now) ต้องตรงกับเวลาเซิร์ฟเวอร์ ถ้าถูกเปลี่ยนจะส่งไม่ได้
+      if (checkClock && clockBase && Math.abs(Date.now() - serverNowMs()) > 120000) {
+        return { ok: false, msg: 'เวลาในเครื่องไม่ตรงกับเวลาจริง ส่งไม่ได้ กรุณาตั้งวันเวลาเป็นแบบอัตโนมัติ แล้วเปิดแอปใหม่' };
+      }
+      const r = SUBMIT_RULES[shift];
+      if (r) {
+        const mins = nowMinsBkk();
+        if (!(mins >= r.open || mins <= r.close)) {
+          return { ok: false, msg: 'เกินเวลาส่งรายงานกะ' + (SHIFT_TH[shift] || shift) + ' (ช่วงส่ง ' + r.text + ' น.) ส่งช้า/ส่งไม่ได้ กรุณาแจ้งหัวหน้า' };
+        }
+      }
+      return { ok: true };
+    }
+    function updateSubmitGate() {
+      const btn = document.getElementById('btn-send'), box = document.getElementById('submit-warning');
+      if (!btn || !box || submitting) return;
+      const g = submitGate(selectedShift());
+      box.classList.toggle('hidden', g.ok);
+      box.textContent = g.ok ? '' : '⚠ ' + g.msg;
+      btn.disabled = !g.ok;
+      btn.classList.toggle('opacity-50', !g.ok);
+    }
+    // ===== การ์ด "ไม่ส่งรายงาน" ในหน้าทุกรายงาน (เฉพาะหัวหน้า) =====
+    // วันเวร/กะที่ผ่านเวลารีเซ็ตแล้วและไม่มีรายงานเลย
+    const MISSING_LOOKBACK_DAYS = 3; // ตรวจย้อนหลังกี่วันเวร
+    function isoToBE(iso) { const p = iso.split('-'); return Number(p[2]) + '/' + Number(p[1]) + '/' + (Number(p[0]) + 543); }
+    function renderMissingReports() {
+      const box = document.getElementById('late-banner');
+      if (!box) return;
+      if (!isSupervisor) { box.classList.add('hidden'); return; }
+      const fDate = (document.getElementById('filter-date').value || '').trim();
+      const fShift = (document.getElementById('filter-shift').value || '').trim();
+      const p = bangkokNowParts(), mins = nowMinsBkk(), today = p.year + '-' + p.month + '-' + p.day;
+      const addDays = (iso, n) => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+      const closeAt = { Morning: -1, Afternoon: SUBMIT_RULES.Afternoon.close, Night: SUBMIT_RULES.Night.close }; // เช้ารีเซ็ตเที่ยงคืน
+      const truncated = allReports.length >= 100; // GAS ส่งกลับสูงสุด 100 รายการ
+      const oldest = allReports.reduce((m, r) => (!m || r.dateISO < m) ? r.dateISO : m, '');
+      const cand = [];
+      ['Morning', 'Afternoon', 'Night'].forEach(s => {
+        if (fShift && fShift !== s) return;
+        const x0 = addDays(today, mins > closeAt[s] ? -1 : -2); // วันเวรล่าสุดที่รีเซ็ตแล้ว
+        for (let k = 0; k < MISSING_LOOKBACK_DAYS; k++) {
+          const x = addDays(x0, -k);
+          if (fDate && fDate !== x) continue;
+          if (!fDate && truncated && oldest && x <= oldest) continue; // ข้อมูลอาจถูกตัด ตัดสินไม่ได้
+          cand.push({ x, s });
+        }
+      });
+      // เลยเวลารีเซ็ตแล้วไม่มีรายงานของวันเวร/กะนั้นเลย = ไม่ส่งรายงาน (ส่งตอนนี้จะถูกนับเป็นวันใหม่)
+      const items = cand.filter(({ x, s }) => !allReports.some(r => r.shift === s && r.dateISO === x));
+      const order = { Morning: 0, Afternoon: 1, Night: 2 };
+      items.sort((a, b) => a.x < b.x ? 1 : a.x > b.x ? -1 : order[a.s] - order[b.s]);
+      box.innerHTML = items.map(it => `<div class="w-full bg-red-50 border border-red-200 rounded-2xl px-3.5 py-2.5">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[13px] text-ink-700 tabular-nums shrink-0">${esc(isoToBE(it.x))}</span>
+            <span class="text-[12px] text-ink-400 shrink-0">กะ${SHIFT_TH[it.s]}</span>
+            <span class="text-[13px] font-semibold text-red-700 truncate flex-1">ไม่ส่งรายงาน</span>
+          </div>
+        </div>`).join('');
+      box.classList.toggle('hidden', !items.length);
+    }
+    setInterval(() => { if (profile) refreshReportDateUI(); }, 15000);
+    setInterval(() => { if (profile && document.visibilityState === 'visible') syncServerClock().then(() => refreshReportDateUI()); }, 300000);
+
     function bangkokNowParts() {
       const fmt = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Bangkok',
@@ -1175,7 +1275,7 @@
         hour: '2-digit', minute: '2-digit', second: '2-digit',
         hourCycle: 'h23'
       });
-      const parts = Object.fromEntries(fmt.formatToParts(new Date()).filter(p => p.type !== 'literal').map(p => [p.type, p.value]));
+      const parts = Object.fromEntries(fmt.formatToParts(new Date(serverNowMs())).filter(p => p.type !== 'literal').map(p => [p.type, p.value]));
       return parts;
     }
     function normalizeName(s) {
