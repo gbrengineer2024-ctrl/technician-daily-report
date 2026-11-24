@@ -296,7 +296,7 @@
 
   <script>
     const LIFF_ID = '2011217041-56BP6tWK';
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxtTPmDgbHZOiuG9730bSM05MLbxvoFkr7xPnKBtNzulqLCvPyHFxq-EV_8L-vszUfHgw/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxonWRrw7jg2DHCW8AdlgUAtX0zOEwcjjkBbeTN4I9i9UWExItPafpxIb089r-fiUj08g/exec';
     const SHEET_JOBS_ID = '1Af9TWOlRtHomFe6Y2wwCaBmkZe4XtasxuxhGm8NFmGs';
     const SHEET_JOBS_GID = '880111695';
     const SHEET_MACHINES_ID = '1el9AyKCQULeQVqtTMkxTFD07lbW9VfuWeAaNOuONV8s';
@@ -818,6 +818,7 @@
       const dateInfo = getReportDateForShift(shift);
       const payload = {
         shift,
+        tech_name: techName || (profile && profile.displayName) || '',
         work_summary: document.getElementById('work_summary').value.trim(),
         notes: document.getElementById('notes').value.trim() || '-',
         jobs_count: myJobs.length,
@@ -864,8 +865,7 @@
         if (shift) payload.shift = shift;
         const data = await callGAS('getAllReports', payload);
         allReports = data.reports || [];
-        renderReportCards(el, allReports, 'all');
-        renderMissingReports();
+        renderReportCards(el, allReports, 'all', computeMissingReports());
       } catch (e) {
         el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">โหลดไม่สำเร็จ</div>';
       }
@@ -891,12 +891,27 @@
       }
     }
 
-    function renderReportCards(el, list, source) {
-      if (!list.length) {
+    function renderReportCards(el, list, source, missing = []) {
+      if (!list.length && !missing.length) {
         el.innerHTML = '<div class="text-center py-10 text-ink-400 text-sm">ยังไม่มีรายงาน</div>';
         return;
       }
-      el.innerHTML = list.map((r, i) => {
+      list.forEach(r => { if (!r.tech_name) r.tech_name = r.displayName || ''; }); // รายงานที่ไม่มีชื่อช่าง ใช้ชื่อ LINE แทน
+      // รวมการ์ด "ไม่ส่งรายงาน" เข้าไปเรียงตามวันที่ (ใหม่→เก่า) และกะ (ดึก→บ่าย→เช้า)
+      const rank = { Morning: 1, Afternoon: 2, Night: 3 };
+      const entries = list.map((r, i) => ({ r, i, d: r.dateISO || '', k: rank[r.shift] || 0 }))
+        .concat(missing.map(m => ({ miss: m, i: -1, d: m.x, k: rank[m.s] || 0 })));
+      if (missing.length) entries.sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : b.k - a.k || a.i - b.i);
+      el.innerHTML = entries.map(({ r, i, miss }) => {
+        if (miss) {
+          return `<div class="w-full bg-red-50 border border-red-200 rounded-2xl px-3.5 py-2.5">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[13px] text-ink-700 tabular-nums shrink-0">${esc(isoToBE(miss.x))}</span>
+            <span class="text-[12px] text-ink-400 shrink-0">กะ${SHIFT_TH[miss.s]}</span>
+            <span class="text-[13px] font-semibold text-red-700 truncate flex-1">ไม่ส่งรายงาน</span>
+          </div>
+        </div>`;
+        }
         const st = r.approval_status || 'รอตรวจ';
         const ok = st === 'ยืนยันแล้ว';
         const comment = (r.approval_comment || '').trim();
@@ -1230,10 +1245,9 @@
     // วันเวร/กะที่ผ่านเวลารีเซ็ตแล้วและไม่มีรายงานเลย
     const MISSING_LOOKBACK_DAYS = 3; // ตรวจย้อนหลังกี่วันเวร
     function isoToBE(iso) { const p = iso.split('-'); return Number(p[2]) + '/' + Number(p[1]) + '/' + (Number(p[0]) + 543); }
-    function renderMissingReports() {
-      const box = document.getElementById('late-banner');
-      if (!box) return;
-      if (!isSupervisor) { box.classList.add('hidden'); return; }
+    // คืนรายการ {x: วันเวร ISO, s: กะ} ที่เลยเวลารีเซ็ตแล้วและไม่มีรายงานเลย (เฉพาะหัวหน้า) เพื่อแทรกในรายการตามวันและกะ
+    function computeMissingReports() {
+      if (!isSupervisor) return [];
       const fDate = (document.getElementById('filter-date').value || '').trim();
       const fShift = (document.getElementById('filter-shift').value || '').trim();
       const p = bangkokNowParts(), mins = nowMinsBkk(), today = p.year + '-' + p.month + '-' + p.day;
@@ -1241,7 +1255,7 @@
       const closeAt = { Morning: -1, Afternoon: SUBMIT_RULES.Afternoon.close, Night: SUBMIT_RULES.Night.close }; // เช้ารีเซ็ตเที่ยงคืน
       const truncated = allReports.length >= 100; // GAS ส่งกลับสูงสุด 100 รายการ
       const oldest = allReports.reduce((m, r) => (!m || r.dateISO < m) ? r.dateISO : m, '');
-      const cand = [];
+      const out = [];
       ['Morning', 'Afternoon', 'Night'].forEach(s => {
         if (fShift && fShift !== s) return;
         const x0 = addDays(today, mins > closeAt[s] ? -1 : -2); // วันเวรล่าสุดที่รีเซ็ตแล้ว
@@ -1249,21 +1263,10 @@
           const x = addDays(x0, -k);
           if (fDate && fDate !== x) continue;
           if (!fDate && truncated && oldest && x <= oldest) continue; // ข้อมูลอาจถูกตัด ตัดสินไม่ได้
-          cand.push({ x, s });
+          if (!allReports.some(r => r.shift === s && r.dateISO === x)) out.push({ x, s });
         }
       });
-      // เลยเวลารีเซ็ตแล้วไม่มีรายงานของวันเวร/กะนั้นเลย = ไม่ส่งรายงาน (ส่งตอนนี้จะถูกนับเป็นวันใหม่)
-      const items = cand.filter(({ x, s }) => !allReports.some(r => r.shift === s && r.dateISO === x));
-      const order = { Morning: 0, Afternoon: 1, Night: 2 };
-      items.sort((a, b) => a.x < b.x ? 1 : a.x > b.x ? -1 : order[a.s] - order[b.s]);
-      box.innerHTML = items.map(it => `<div class="w-full bg-red-50 border border-red-200 rounded-2xl px-3.5 py-2.5">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="text-[13px] text-ink-700 tabular-nums shrink-0">${esc(isoToBE(it.x))}</span>
-            <span class="text-[12px] text-ink-400 shrink-0">กะ${SHIFT_TH[it.s]}</span>
-            <span class="text-[13px] font-semibold text-red-700 truncate flex-1">ไม่ส่งรายงาน</span>
-          </div>
-        </div>`).join('');
-      box.classList.toggle('hidden', !items.length);
+      return out;
     }
     setInterval(() => { if (profile) refreshReportDateUI(); }, 15000);
     setInterval(() => { if (profile && document.visibilityState === 'visible') syncServerClock().then(() => refreshReportDateUI()); }, 300000);
